@@ -59,3 +59,6 @@ tokimo-core = { path = "crates/core" }
 tokimo-storage = { path = "crates/storage" }
 tokimo-providers = { path = "crates/providers" }
 tokimo-migration = { path = "crates/migration" }
+
+# Object storage (S3/OSS)
+object_store = { version = "0.11", features = ["aws"] }
