@@ -1,0 +1,61 @@
+[workspace]
+members = [
+    "crates/server",
+    "crates/core",
+    "crates/providers",
+    "crates/storage",
+    "crates/migration",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Tokimo Team"]
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1"
+
+# Web framework
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["fs", "trace", "cors", "timeout", "limit"] }
+
+# Database
+sea-orm = { version = "1", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"] }
+sea-orm-migration = "1"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Auth
+jsonwebtoken = "9"
+argon2 = "0.5"
+rand = "0.8"
+
+# Utilities
+bytes = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = "6"
+
+# Internal crates
+tokimo-core = { path = "crates/core" }
+tokimo-storage = { path = "crates/storage" }
+tokimo-providers = { path = "crates/providers" }
+tokimo-migration = { path = "crates/migration" }

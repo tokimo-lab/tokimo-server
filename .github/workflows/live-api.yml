@@ -1,0 +1,15 @@
+name: Live API Tests
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tmdb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test -p tokimo-providers --features live-api -- --ignored
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
