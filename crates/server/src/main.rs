@@ -44,7 +44,7 @@ async fn main() -> anyhow::Result<()> {
     let storage = tokimo_storage::storage_from_env().await?;
 
     let cache = Arc::new(infra::PgCache::new(db.clone()));
-    let single_flight = Arc::new(infra::LocalSingleFlight::new());
+    let single_flight = Arc::new(infra::PgSingleFlight::new(Arc::new(db.clone())));
     let rate_limiter = Arc::new(infra::PgRateLimiter::new(db.clone()));
     let http = reqwest::Client::builder()
         .timeout(Duration::from_secs(30))

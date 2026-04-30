@@ -66,22 +66,41 @@ async fn get_hot_list(
     // Single-flight fetch
     let source_clone: Arc<dyn HotSource> = source.clone();
     let http = state.http.clone();
+    let cache = state.cache.clone();
+    let cache_key_for_closure = cache_key.clone();
 
     let items: Vec<HotItem> = state
         .single_flight
-        .do_once(&cache_key, || async move {
+        .do_once(&cache_key, move || async move {
+            // Race contract: must re-check provider table inside single-flight to
+            // handle cross-process losers. For hot lists the "provider table" is
+            // the shared PG cache — the first process writes the cache entry
+            // before releasing the advisory lock, so losers find it here.
+            if let Some(cached) = cache.get("hot", &cache_key_for_closure).await? {
+                if let Ok(items) = serde_json::from_slice::<Vec<HotItem>>(&cached) {
+                    return Ok(items);
+                }
+            }
+
             let span = tracing::info_span!("upstream", provider = "baidu_hot", source = source_clone.id());
             let _enter = span.enter();
-            source_clone.fetch(&http).await
-        })
-        .await?;
+            let items = source_clone.fetch(&http).await?;
 
-    // Cache for 2 minutes
-    let serialized =
-        serde_json::to_vec(&items).map_err(|e| AppError::Internal(format!("Serialization failed: {}", e)))?;
-    state
-        .cache
-        .set("hot", &cache_key, serialized.into(), Duration::from_secs(120))
+            // Persist to cache before releasing the advisory lock so cross-process
+            // losers observe it on their re-check above.
+            if let Ok(serialized) = serde_json::to_vec(&items) {
+                let _ = cache
+                    .set(
+                        "hot",
+                        &cache_key_for_closure,
+                        serialized.into(),
+                        Duration::from_secs(120),
+                    )
+                    .await;
+            }
+
+            Ok(items)
+        })
         .await?;
 
     Ok(Json(items))

@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokimo_providers::baidu_sports::{fetch_schedule, SportSchedule};
 use tokio::time::interval;
 
-use crate::{AppError, AppResult, AppState};
+use crate::{AppResult, AppState};
 
 pub fn routes() -> Router<AppState> {
     Router::new().route("/schedule", get(get_schedule))
@@ -39,22 +39,40 @@ async fn get_schedule(
     let http = state.http.clone();
     let match_type = query.match_type.clone();
     let date = query.date.clone();
+    let cache = state.cache.clone();
+    let cache_key_for_closure = cache_key.clone();
 
     let schedule: SportSchedule = state
         .single_flight
-        .do_once(&cache_key, || async move {
+        .do_once(&cache_key, move || async move {
+            // Race contract: must re-check provider table inside single-flight to
+            // handle cross-process losers. For sports the "provider table" is the
+            // shared PG cache — the first process writes it before releasing the
+            // advisory lock, so losers find it here and short-circuit.
+            if let Some(cached) = cache.get("sports", &cache_key_for_closure).await? {
+                if let Ok(schedule) = serde_json::from_slice::<SportSchedule>(&cached) {
+                    return Ok(schedule);
+                }
+            }
+
             let span =
                 tracing::info_span!("upstream", provider = "baidu_sports", match_type = %match_type, date = %date);
             let _enter = span.enter();
-            fetch_schedule(&http, &match_type, &date).await
-        })
-        .await?;
+            let schedule = fetch_schedule(&http, &match_type, &date).await?;
 
-    let serialized =
-        serde_json::to_vec(&schedule).map_err(|e| AppError::Internal(format!("Serialization failed: {}", e)))?;
-    state
-        .cache
-        .set("sports", &cache_key, serialized.into(), Duration::from_secs(60))
+            if let Ok(serialized) = serde_json::to_vec(&schedule) {
+                let _ = cache
+                    .set(
+                        "sports",
+                        &cache_key_for_closure,
+                        serialized.into(),
+                        Duration::from_secs(60),
+                    )
+                    .await;
+            }
+
+            Ok(schedule)
+        })
         .await?;
 
     Ok(Json(schedule))

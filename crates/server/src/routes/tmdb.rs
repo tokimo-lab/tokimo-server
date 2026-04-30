@@ -31,44 +31,14 @@ struct MovieResponse {
 }
 
 async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Json<MovieResponse>> {
-    // Check DB first
+    // Fast-path DB check before single-flight: avoids both a local lock and a
+    // PG round-trip in the common cache-hit case.
     if let Some(movie) = TmdbMovies::find_by_id(id)
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        let poster_url = match &movie.poster_storage_key {
-            Some(k) => Some(
-                state
-                    .storage
-                    .url_for(k)
-                    .await
-                    .map_err(|e| AppError::Internal(e.to_string()))?,
-            ),
-            None => None,
-        };
-        let backdrop_url = match &movie.backdrop_storage_key {
-            Some(k) => Some(
-                state
-                    .storage
-                    .url_for(k)
-                    .await
-                    .map_err(|e| AppError::Internal(e.to_string()))?,
-            ),
-            None => None,
-        };
-        return Ok(Json(MovieResponse {
-            id: movie.id,
-            title: movie.title,
-            original_title: movie.original_title,
-            overview: movie.overview,
-            release_date: movie.release_date,
-            runtime: movie.runtime,
-            vote_average: movie.vote_average,
-            vote_count: movie.vote_count,
-            poster_url,
-            backdrop_url,
-        }));
+        return movie_to_response(&state, movie).await.map(Json);
     }
 
     // DB miss - fetch from upstream with single-flight
@@ -84,10 +54,23 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
     let http = state.http.clone();
     let storage = state.storage.clone();
     let api_key_clone = api_key.clone();
+    let db = state.db.clone();
 
-    let result: (serde_json::Value, Option<String>, Option<String>) = state
+    let movie: tmdb_movies::Model = state
         .single_flight
         .do_once(&cache_key, move || async move {
+            // Race contract: must re-check provider table inside single-flight to
+            // handle cross-process losers. The first process to acquire the PG
+            // advisory lock writes the row; everyone else wakes up here, finds
+            // it, and short-circuits without re-hitting the upstream.
+            if let Some(movie) = TmdbMovies::find_by_id(id)
+                .one(&db)
+                .await
+                .map_err(|e| tokimo_core::CoreError::Database(e.to_string()))?
+            {
+                return Ok(movie);
+            }
+
             let span = tracing::info_span!("upstream", provider = "tmdb", movie_id = id);
             let _enter = span.enter();
 
@@ -107,36 +90,35 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
                 None
             };
 
-            Ok((raw_json, poster_key, backdrop_key))
+            let model = tmdb_movies::ActiveModel {
+                id: Set(id),
+                title: Set(raw_json["title"].as_str().unwrap_or("").to_string()),
+                original_title: Set(raw_json["original_title"].as_str().map(|s| s.to_string())),
+                overview: Set(raw_json["overview"].as_str().map(|s| s.to_string())),
+                release_date: Set(raw_json["release_date"].as_str().map(|s| s.to_string())),
+                runtime: Set(raw_json["runtime"].as_i64().map(|n| n as i32)),
+                vote_average: Set(raw_json["vote_average"].as_f64()),
+                vote_count: Set(raw_json["vote_count"].as_i64().map(|n| n as i32)),
+                poster_storage_key: Set(poster_key),
+                backdrop_storage_key: Set(backdrop_key),
+                raw_json: Set(raw_json),
+                fetched_at: Set(chrono::Utc::now().into()),
+            };
+
+            let inserted = TmdbMovies::insert(model.clone())
+                .exec_with_returning(&db)
+                .await
+                .map_err(|e| tokimo_core::CoreError::Database(e.to_string()))?;
+
+            Ok(inserted)
         })
         .await?;
 
-    let (raw_json, poster_key, backdrop_key) = result;
+    movie_to_response(&state, movie).await.map(Json)
+}
 
-    // Parse and persist
-    let movie_data: serde_json::Value = raw_json;
-
-    let model = tmdb_movies::ActiveModel {
-        id: Set(id),
-        title: Set(movie_data["title"].as_str().unwrap_or("").to_string()),
-        original_title: Set(movie_data["original_title"].as_str().map(|s| s.to_string())),
-        overview: Set(movie_data["overview"].as_str().map(|s| s.to_string())),
-        release_date: Set(movie_data["release_date"].as_str().map(|s| s.to_string())),
-        runtime: Set(movie_data["runtime"].as_i64().map(|n| n as i32)),
-        vote_average: Set(movie_data["vote_average"].as_f64()),
-        vote_count: Set(movie_data["vote_count"].as_i64().map(|n| n as i32)),
-        poster_storage_key: Set(poster_key.clone()),
-        backdrop_storage_key: Set(backdrop_key.clone()),
-        raw_json: Set(movie_data.clone()),
-        fetched_at: Set(chrono::Utc::now().into()),
-    };
-
-    TmdbMovies::insert(model)
-        .exec(&state.db)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
-
-    let poster_url = match &poster_key {
+async fn movie_to_response(state: &AppState, movie: tmdb_movies::Model) -> AppResult<MovieResponse> {
+    let poster_url = match &movie.poster_storage_key {
         Some(k) => Some(
             state
                 .storage
@@ -146,7 +128,7 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
         ),
         None => None,
     };
-    let backdrop_url = match &backdrop_key {
+    let backdrop_url = match &movie.backdrop_storage_key {
         Some(k) => Some(
             state
                 .storage
@@ -156,17 +138,16 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
         ),
         None => None,
     };
-
-    Ok(Json(MovieResponse {
-        id,
-        title: movie_data["title"].as_str().unwrap_or("").to_string(),
-        original_title: movie_data["original_title"].as_str().map(|s| s.to_string()),
-        overview: movie_data["overview"].as_str().map(|s| s.to_string()),
-        release_date: movie_data["release_date"].as_str().map(|s| s.to_string()),
-        runtime: movie_data["runtime"].as_i64().map(|n| n as i32),
-        vote_average: movie_data["vote_average"].as_f64(),
-        vote_count: movie_data["vote_count"].as_i64().map(|n| n as i32),
+    Ok(MovieResponse {
+        id: movie.id,
+        title: movie.title,
+        original_title: movie.original_title,
+        overview: movie.overview,
+        release_date: movie.release_date,
+        runtime: movie.runtime,
+        vote_average: movie.vote_average,
+        vote_count: movie.vote_count,
         poster_url,
         backdrop_url,
-    }))
+    })
 }

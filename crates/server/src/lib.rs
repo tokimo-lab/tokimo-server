@@ -8,7 +8,7 @@ pub mod routes;
 pub use config::AppConfig;
 pub use error::{AppError, AppResult};
 
-use crate::infra::LocalSingleFlight;
+use crate::infra::PgSingleFlight;
 use std::sync::Arc;
 use tokimo_core::{Cache, RateLimiter, Storage};
 
@@ -17,7 +17,7 @@ pub struct AppState {
     pub db: sea_orm::DatabaseConnection,
     pub storage: Arc<dyn Storage>,
     pub cache: Arc<dyn Cache>,
-    pub single_flight: Arc<LocalSingleFlight>,
+    pub single_flight: Arc<PgSingleFlight>,
     pub rate_limiter: Arc<dyn RateLimiter>,
     pub http: reqwest::Client,
     pub config: Arc<AppConfig>,
