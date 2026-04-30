@@ -29,8 +29,8 @@ impl Storage for OssStorage {
         unimplemented!("OSS storage not yet implemented")
     }
 
-    fn url_for(&self, key: &str) -> String {
-        format!("{}/{}", self.public_base.trim_end_matches('/'), key)
+    async fn url_for(&self, key: &str) -> CoreResult<String> {
+        Ok(format!("{}/{}", self.public_base.trim_end_matches('/'), key))
     }
 
     async fn exists(&self, _key: &str) -> CoreResult<bool> {

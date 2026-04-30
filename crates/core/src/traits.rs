@@ -13,8 +13,12 @@ pub trait Storage: Send + Sync {
     /// Delete object at key
     async fn delete(&self, key: &str) -> CoreResult<()>;
 
-    /// Generate public URL for the given key (synchronous)
-    fn url_for(&self, key: &str) -> String;
+    /// Generate a URL for the given key.
+    ///
+    /// For public buckets this returns the assembled public URL.
+    /// For private buckets this returns a presigned GET URL with a backend-defined TTL.
+    /// The operation is async because presigning may require signing logic.
+    async fn url_for(&self, key: &str) -> CoreResult<String>;
 
     /// Check if key exists
     async fn exists(&self, key: &str) -> CoreResult<bool>;

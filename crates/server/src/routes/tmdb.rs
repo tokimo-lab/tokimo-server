@@ -37,6 +37,26 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
+        let poster_url = match &movie.poster_storage_key {
+            Some(k) => Some(
+                state
+                    .storage
+                    .url_for(k)
+                    .await
+                    .map_err(|e| AppError::Internal(e.to_string()))?,
+            ),
+            None => None,
+        };
+        let backdrop_url = match &movie.backdrop_storage_key {
+            Some(k) => Some(
+                state
+                    .storage
+                    .url_for(k)
+                    .await
+                    .map_err(|e| AppError::Internal(e.to_string()))?,
+            ),
+            None => None,
+        };
         return Ok(Json(MovieResponse {
             id: movie.id,
             title: movie.title,
@@ -46,8 +66,8 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
             runtime: movie.runtime,
             vote_average: movie.vote_average,
             vote_count: movie.vote_count,
-            poster_url: movie.poster_storage_key.map(|k| state.storage.url_for(&k)),
-            backdrop_url: movie.backdrop_storage_key.map(|k| state.storage.url_for(&k)),
+            poster_url,
+            backdrop_url,
         }));
     }
 
@@ -116,6 +136,27 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
+    let poster_url = match &poster_key {
+        Some(k) => Some(
+            state
+                .storage
+                .url_for(k)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?,
+        ),
+        None => None,
+    };
+    let backdrop_url = match &backdrop_key {
+        Some(k) => Some(
+            state
+                .storage
+                .url_for(k)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?,
+        ),
+        None => None,
+    };
+
     Ok(Json(MovieResponse {
         id,
         title: movie_data["title"].as_str().unwrap_or("").to_string(),
@@ -125,7 +166,7 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
         runtime: movie_data["runtime"].as_i64().map(|n| n as i32),
         vote_average: movie_data["vote_average"].as_f64(),
         vote_count: movie_data["vote_count"].as_i64().map(|n| n as i32),
-        poster_url: poster_key.map(|k| state.storage.url_for(&k)),
-        backdrop_url: backdrop_key.map(|k| state.storage.url_for(&k)),
+        poster_url,
+        backdrop_url,
     }))
 }

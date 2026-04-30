@@ -39,8 +39,8 @@ impl Storage for LocalStorage {
         Ok(())
     }
 
-    fn url_for(&self, key: &str) -> String {
-        format!("{}/{}", self.public_base.trim_end_matches('/'), key)
+    async fn url_for(&self, key: &str) -> CoreResult<String> {
+        Ok(format!("{}/{}", self.public_base.trim_end_matches('/'), key))
     }
 
     async fn exists(&self, key: &str) -> CoreResult<bool> {
@@ -64,7 +64,7 @@ mod tests {
 
         assert!(storage.exists("test/file.txt").await.unwrap());
 
-        let url = storage.url_for("test/file.txt");
+        let url = storage.url_for("test/file.txt").await.unwrap();
         assert_eq!(url, "http://localhost/assets/test/file.txt");
 
         storage.delete("test/file.txt").await.unwrap();
