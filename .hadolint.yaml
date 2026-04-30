@@ -1,0 +1,4 @@
+ignored:
+  # Pinning apt package versions on debian:bookworm-slim is brittle —
+  # security updates would break builds. We accept latest from the base image.
+  - DL3008

@@ -1,9 +1,9 @@
+use argon2::PasswordVerifier;
 use axum::{
     extract::{Request, State},
     middleware::Next,
     response::Response,
 };
-use argon2::PasswordVerifier;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};

@@ -1,9 +1,9 @@
+use argon2::PasswordHasher;
 use axum::{
     extract::State,
     routing::{get, post},
     Json, Router,
 };
-use argon2::PasswordHasher;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use rand::Rng;
 use sea_orm::{entity::*, EntityTrait};
