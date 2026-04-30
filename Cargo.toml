@@ -53,6 +53,7 @@ bytes = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 dashmap = "6"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
 
 # Internal crates
 tokimo-core = { path = "crates/core" }

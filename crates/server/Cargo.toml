@@ -36,5 +36,8 @@ uuid.workspace = true
 chrono.workspace = true
 dashmap.workspace = true
 async-trait.workspace = true
+xxhash-rust.workspace = true
 
 [dev-dependencies]
+serial_test = "3"
+tokio = { workspace = true }
