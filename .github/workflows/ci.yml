@@ -17,6 +17,39 @@ jobs:
       - run: cargo test --workspace --no-run
       - run: cargo build --release -p tokimo-server
 
+  storage-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Start MinIO + create bucket
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:latest server /data
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:9000/minio/health/live && break
+            sleep 2
+          done
+          docker run --rm --network host \
+            -e MC_HOST_local=http://minioadmin:minioadmin@localhost:9000 \
+            minio/mc:latest mb local/tokimo-test
+          docker run --rm --network host \
+            -e MC_HOST_local=http://minioadmin:minioadmin@localhost:9000 \
+            minio/mc:latest anonymous set download local/tokimo-test
+      - name: Run storage integration tests
+        env:
+          MINIO_ENDPOINT: http://localhost:9000
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
+          MINIO_BUCKET: tokimo-test
+        run: cargo test -p tokimo-storage --features s3 --test s3_integration
+      - name: MinIO logs on failure
+        if: failure()
+        run: docker logs minio || true
+
   admin:
     runs-on: ubuntu-latest
     steps:
