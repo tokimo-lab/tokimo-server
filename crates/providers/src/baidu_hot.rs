@@ -361,9 +361,16 @@ pub fn create_registry() -> Vec<std::sync::Arc<dyn HotSource>> {
 mod tests {
     use super::*;
 
+    // China-only source: Sina Weibo's hot-search endpoint geo-blocks /
+    // WAFs non-CN traffic (GitHub Actions runners are in US/EU and get
+    // 403 / 302). Set `RUN_CN_LIVE_TESTS=1` to run from a CN host.
     #[tokio::test]
     #[ignore]
     async fn test_weibo_source() {
+        if std::env::var("RUN_CN_LIVE_TESTS").is_err() {
+            eprintln!("skipping test_weibo_source: set RUN_CN_LIVE_TESTS=1 to enable");
+            return;
+        }
         let client = reqwest::Client::new();
         let source = WeiboHotSource;
         let result = source.fetch(&client).await;
