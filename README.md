@@ -8,7 +8,7 @@ An adapter, cache, and CDN-fronting service for third-party APIs (TMDB, Baidu Ho
 - 🚀 **Single-Flight**: Deduplicate concurrent identical requests (process-local)
 - 🌊 **Rate Limiting**: Token-bucket rate limiter persisted to PostgreSQL
 - 💾 **Caching**: Database-backed caching with TTL
-- 📦 **Asset Storage**: Local filesystem storage (S3/OSS stubs for future)
+- 📦 **Asset Storage**: Local filesystem · S3-compatible (AWS S3 / MinIO) · Aliyun OSS
 - 🎬 **TMDB Integration**: Movie metadata + image download
 - 🔥 **Hot Search Aggregator**: Multi-source trending topics (Weibo, Bilibili, Baidu, GitHub Trending, Hacker News, V2EX)
 - ⚽ **Baidu Sports**: Schedule fetching with automatic prewarm
@@ -178,6 +178,18 @@ curl http://localhost:5680/api/tmdb/movie/550 \
 | `TMDB_API_KEY` | No | - | TMDB API key (required for TMDB endpoints) |
 | `RUST_LOG` | No | `info,tokimo_server=debug,sqlx=warn` | Log level |
 
+### Storage backends
+
+Selected via `STORAGE_BACKEND`. DB always stores object **keys**; the URL is assembled at response time via `Storage::url_for(key)` (async).
+
+| Backend | When to use | Required env vars |
+|---|---|---|
+| `local` | Single-node dev / self-hosted with reverse proxy | `STORAGE_LOCAL_ROOT`, `STORAGE_LOCAL_PUBLIC_BASE` |
+| `s3` | AWS S3 / MinIO / any S3-compatible service | `STORAGE_S3_BUCKET`, `STORAGE_S3_REGION`, `STORAGE_S3_ACCESS_KEY_ID`, `STORAGE_S3_SECRET_ACCESS_KEY`, optional `STORAGE_S3_ENDPOINT` (omit for AWS), `STORAGE_S3_PUBLIC_BASE` (when public), `STORAGE_S3_PRESIGN_TTL_SECONDS` (default `0`) |
+| `oss` | Aliyun OSS (S3-compatible protocol) | `STORAGE_OSS_BUCKET`, `STORAGE_OSS_REGION`, `STORAGE_OSS_ACCESS_KEY_ID`, `STORAGE_OSS_SECRET_ACCESS_KEY`, optional `STORAGE_OSS_ENDPOINT` (default `https://oss-cn-hangzhou.aliyuncs.com`), `STORAGE_OSS_PUBLIC_BASE`, `STORAGE_OSS_PRESIGN_TTL_SECONDS` |
+
+`PRESIGN_TTL_SECONDS=0` ⇒ bucket is treated as public; `url_for` returns `{public_base}/{key}`. `>0` ⇒ bucket is private; `url_for` returns a presigned GET URL valid for that many seconds.
+
 ## GitHub Secrets
 
 For CI workflows:
@@ -202,7 +214,7 @@ For CI workflows:
 - No `.unwrap()` / `.expect()` in non-test code
 - Always propagate errors with `?`
 - DB stores object **keys**, never URLs
-- URLs assembled via `Storage::url_for(key)` at response time
+- URLs assembled via `Storage::url_for(key).await` at response time
 - Wrap upstream calls in `tracing::info_span!("upstream", provider=..., ...)`
 
 ---
@@ -217,7 +229,7 @@ For CI workflows:
 - 🚀 **单飞机制**：去重并发的相同请求（进程内）
 - 🌊 **速率限制**：令牌桶算法速率限制器，持久化到 PostgreSQL
 - 💾 **缓存**：数据库支持的带 TTL 缓存
-- 📦 **资源存储**：本地文件系统存储（S3/OSS 占位符）
+- 📦 **资源存储**：本地文件系统 · S3 兼容（AWS S3 / MinIO）· 阿里云 OSS
 - 🎬 **TMDB 集成**：电影元数据 + 图片下载
 - 🔥 **热搜聚合器**：多源热门话题（微博、B站、百度、GitHub Trending、Hacker News、V2EX）
 - ⚽ **百度体育**：赛事日程获取 + 自动预热
@@ -297,7 +309,20 @@ curl http://localhost:5680/api/tmdb/movie/550 \
 
 ### 配置说明
 
-（同上表）
+（环境变量同上表）
+
+#### 存储后端
+
+通过 `STORAGE_BACKEND` 选择。数据库只存对象 **key**，URL 在响应时通过 `Storage::url_for(key)`（async）组装。
+
+| 后端 | 适用场景 | 必填环境变量 |
+|---|---|---|
+| `local` | 单机开发 / 反向代理自部署 | `STORAGE_LOCAL_ROOT`、`STORAGE_LOCAL_PUBLIC_BASE` |
+| `s3` | AWS S3 / MinIO / 其他 S3 兼容服务 | `STORAGE_S3_BUCKET`、`STORAGE_S3_REGION`、`STORAGE_S3_ACCESS_KEY_ID`、`STORAGE_S3_SECRET_ACCESS_KEY`、可选 `STORAGE_S3_ENDPOINT`（AWS 留空）、`STORAGE_S3_PUBLIC_BASE`（公有桶必填）、`STORAGE_S3_PRESIGN_TTL_SECONDS`（默认 `0`） |
+| `oss` | 阿里云 OSS（S3 兼容协议） | `STORAGE_OSS_BUCKET`、`STORAGE_OSS_REGION`、`STORAGE_OSS_ACCESS_KEY_ID`、`STORAGE_OSS_SECRET_ACCESS_KEY`、可选 `STORAGE_OSS_ENDPOINT`（默认 `https://oss-cn-hangzhou.aliyuncs.com`）、`STORAGE_OSS_PUBLIC_BASE`、`STORAGE_OSS_PRESIGN_TTL_SECONDS` |
+
+`PRESIGN_TTL_SECONDS=0` ⇒ 公有桶，`url_for` 返回 `{public_base}/{key}`；`>0` ⇒ 私有桶，`url_for` 返回有效期为该秒数的预签名 GET URL。
+
 
 ### GitHub Secrets
 
@@ -323,7 +348,7 @@ curl http://localhost:5680/api/tmdb/movie/550 \
 - 非测试代码不使用 `.unwrap()` / `.expect()`
 - 始终用 `?` 传播错误
 - 数据库存储对象**键值**，不存 URL
-- 响应时通过 `Storage::url_for(key)` 组装 URL
+- 响应时通过 `Storage::url_for(key).await` 组装 URL
 - 上游调用包裹在 `tracing::info_span!("upstream", provider=..., ...)` 中
 
 ## License
