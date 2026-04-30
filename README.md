@@ -5,7 +5,7 @@ An adapter, cache, and CDN-fronting service for third-party APIs (TMDB, Baidu Ho
 ## Features
 
 - 🔐 **Authentication**: HTTP Bearer token validation + Admin JWT
-- 🚀 **Single-Flight**: Deduplicate concurrent identical requests (process-local)
+- 🚀 **Single-Flight**: Two-tier deduplication of concurrent identical requests — process-local (DashMap) + cross-process (PostgreSQL `pg_advisory_xact_lock`)
 - 🌊 **Rate Limiting**: Token-bucket rate limiter persisted to PostgreSQL
 - 💾 **Caching**: Database-backed caching with TTL
 - 📦 **Asset Storage**: Local filesystem · S3-compatible (AWS S3 / MinIO) · Aliyun OSS
@@ -59,6 +59,14 @@ graph TB
     Storage --> FS
     Providers -->|Upstream| External[External APIs]
 ```
+
+### Cross-process single-flight
+
+Multi-instance deployments dedup concurrent identical requests in two tiers. The **inner** tier is a process-local `DashMap` that lets same-process callers wait on a single in-flight task with no PG round-trip. The **outer** tier wraps the local layer with a transaction-scoped PostgreSQL advisory lock (`pg_advisory_xact_lock(xxh3_64(key))`) so that across N instances only one process actually hits the upstream API. The lock auto-releases on transaction commit (or connection drop on panic), so it can never leak. Race contract: handlers MUST re-check the provider's persistent table or shared cache as the first action inside the single-flight closure — cross-process losers wake up after the lock is released and short-circuit on this re-check instead of re-running the upstream call.
+
+### 跨进程 Single-Flight
+
+多实例部署下采用两层去重。**内层**是进程内的 `DashMap`，让同一进程的并发调用合并为一次 in-flight 任务，零 PG 往返。**外层**在内层之上叠加 PostgreSQL `pg_advisory_xact_lock(xxh3_64(key))`，把跨 N 个进程的并发请求收敛到只有一个进程真正打上游。锁挂在一个专用事务里，事务 commit / 连接断开时自动释放，不会泄漏。竞态契约：handler 在 single-flight 闭包里的第一步**必须**重新查 provider 持久表或共享缓存——跨进程的"输家"在锁释放后醒来，依靠这次重查直接拿到结果，而不是再打一次上游。
 
 ## Provider Status
 
