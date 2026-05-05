@@ -15,9 +15,12 @@ use crate::{
     AppError, AppResult, AppState,
 };
 
-pub fn routes() -> Router<AppState> {
+pub fn public_routes() -> Router<AppState> {
+    Router::new().route("/login", post(login))
+}
+
+pub fn protected_routes() -> Router<AppState> {
     Router::new()
-        .route("/login", post(login))
         .route("/service-keys", get(list_keys).post(create_key).delete(delete_key))
         .route("/provider-configs", get(list_provider_configs))
         .route("/cache", get(list_cache))

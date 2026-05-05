@@ -25,7 +25,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(ServiceKeys::Scopes)
                             .json_binary()
                             .not_null()
-                            .default("'[]'"),
+                            .extra("DEFAULT '[]'::jsonb"),
                     )
                     .col(ColumnDef::new(ServiceKeys::Enabled).boolean().not_null().default(true))
                     .col(ColumnDef::new(ServiceKeys::ExpiresAt).timestamp_with_time_zone())

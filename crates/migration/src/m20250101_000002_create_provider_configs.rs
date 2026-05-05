@@ -21,7 +21,7 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(ProviderConfigs::Config)
                             .json_binary()
                             .not_null()
-                            .default("'{}'"),
+                            .extra("DEFAULT '{}'::jsonb"),
                     )
                     .col(
                         ColumnDef::new(ProviderConfigs::Enabled)

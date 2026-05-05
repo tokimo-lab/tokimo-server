@@ -9,7 +9,8 @@ function App() {
   const token = localStorage.getItem("tokimo-admin-jwt");
 
   if (!token && window.location.pathname !== "/admin/login") {
-    return <Navigate to="/admin/login" replace />;
+    window.location.replace("/admin/login");
+    return null;
   }
 
   return (

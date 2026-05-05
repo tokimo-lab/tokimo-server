@@ -13,9 +13,10 @@ use crate::{
 pub fn api_routes(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
+        .nest("/admin", admin::public_routes())
         .nest(
             "/admin",
-            admin::routes().route_layer(middleware::from_fn_with_state(state.clone(), admin_auth)),
+            admin::protected_routes().route_layer(middleware::from_fn_with_state(state.clone(), admin_auth)),
         )
         .nest(
             "/tmdb",
