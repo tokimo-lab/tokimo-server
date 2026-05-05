@@ -7,6 +7,10 @@ pub struct AppConfig {
     pub admin_bootstrap_key: String,
     pub jwt_secret: String,
     pub tmdb_api_key: Option<String>,
+    pub omdb_api_key: Option<String>,
+    pub thetvdb_api_key: Option<String>,
+    pub bangumi_user_agent: Option<String>,
+    pub fanart_api_key: Option<String>,
     pub cors_allowed_origins: Vec<String>,
     pub storage_backend: String,
     pub storage_local_root: String,
@@ -22,6 +26,10 @@ impl AppConfig {
                 .context("SERVER_ADMIN_BOOTSTRAP_KEY not set")?,
             jwt_secret: std::env::var("SERVER_JWT_SECRET").context("SERVER_JWT_SECRET not set")?,
             tmdb_api_key: std::env::var("TMDB_API_KEY").ok(),
+            omdb_api_key: std::env::var("OMDB_API_KEY").ok(),
+            thetvdb_api_key: std::env::var("THETVDB_API_KEY").ok(),
+            bangumi_user_agent: std::env::var("BANGUMI_USER_AGENT").ok(),
+            fanart_api_key: std::env::var("FANART_API_KEY").ok(),
             cors_allowed_origins: std::env::var("SERVER_CORS_ALLOWED_ORIGINS")
                 .unwrap_or_default()
                 .split(',')

@@ -1,7 +1,7 @@
-use bytes::Bytes;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use tokimo_core::{compute_storage_key, CoreError, CoreResult, Storage};
+use tokimo_core::{CoreError, CoreResult, Storage};
+
+use crate::common::download_to_storage;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TmdbMovie {
@@ -52,39 +52,19 @@ pub async fn fetch_movie(
     Ok((movie, raw_json))
 }
 
+/// TMDB image base URL.
+pub const TMDB_IMAGE_BASE: &str = "https://image.tmdb.org/t/p/original";
+
+/// Download a TMDB image (given a relative path like `/abc.jpg`) to storage.
+///
+/// Thin wrapper around [`download_to_storage`] that prepends the TMDB CDN.
 pub async fn download_image(
     http: &reqwest::Client,
     image_path: &str,
     storage: &dyn Storage,
 ) -> CoreResult<(String, String)> {
-    let full_url = format!("https://image.tmdb.org/t/p/original{}", image_path);
-
-    let response = http.get(&full_url).send().await.map_err(CoreError::Upstream)?;
-
-    if !response.status().is_success() {
-        return Err(CoreError::Provider(format!(
-            "Failed to download image: {}",
-            response.status()
-        )));
-    }
-
-    let bytes = response.bytes().await.map_err(CoreError::Upstream)?;
-
-    let mime = infer::get(&bytes)
-        .map(|t| t.mime_type().to_string())
-        .unwrap_or_else(|| "image/jpeg".to_string());
-
-    let ext = mime.split('/').nth(1).unwrap_or("jpg");
-
-    let mut hasher = Sha256::new();
-    hasher.update(&bytes);
-    let sha256_hex = hex::encode(hasher.finalize());
-
-    let storage_key = compute_storage_key("tmdb", &sha256_hex, ext);
-
-    storage.put(&storage_key, Bytes::from(bytes.to_vec()), &mime).await?;
-
-    Ok((sha256_hex, storage_key))
+    let full_url = format!("{}{}", TMDB_IMAGE_BASE, image_path);
+    download_to_storage(http, &full_url, storage, "tmdb").await
 }
 
 #[cfg(all(test, feature = "live-api"))]
