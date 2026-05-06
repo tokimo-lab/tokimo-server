@@ -4,6 +4,7 @@ pub mod bangumi;
 pub mod common;
 pub mod douban;
 pub mod fanart;
+pub mod musicbrainz;
 pub mod omdb;
 pub mod spotify;
 pub mod thetvdb;

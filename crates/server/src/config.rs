@@ -13,6 +13,7 @@ pub struct AppConfig {
     pub fanart_api_key: Option<String>,
     pub spotify_client_id: Option<String>,
     pub spotify_client_secret: Option<String>,
+    pub musicbrainz_user_agent: Option<String>,
     pub cors_allowed_origins: Vec<String>,
     pub storage_backend: String,
     pub storage_local_root: String,
@@ -34,6 +35,7 @@ impl AppConfig {
             fanart_api_key: std::env::var("FANART_API_KEY").ok(),
             spotify_client_id: std::env::var("SPOTIFY_CLIENT_ID").ok(),
             spotify_client_secret: std::env::var("SPOTIFY_CLIENT_SECRET").ok(),
+            musicbrainz_user_agent: std::env::var("MUSICBRAINZ_USER_AGENT").ok(),
             cors_allowed_origins: std::env::var("SERVER_CORS_ALLOWED_ORIGINS")
                 .unwrap_or_default()
                 .split(',')

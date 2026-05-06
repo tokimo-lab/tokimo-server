@@ -3,6 +3,7 @@ pub mod bangumi;
 pub mod douban;
 pub mod fanart;
 pub mod hot;
+pub mod musicbrainz;
 pub mod omdb;
 pub mod sports;
 pub mod spotify;
@@ -59,6 +60,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest(
             "/spotify",
             spotify::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
+        .nest(
+            "/musicbrainz",
+            musicbrainz::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
         .with_state(state)
 }
