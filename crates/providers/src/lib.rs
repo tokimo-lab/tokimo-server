@@ -5,6 +5,7 @@ pub mod common;
 pub mod douban;
 pub mod fanart;
 pub mod omdb;
+pub mod spotify;
 pub mod thetvdb;
 pub mod tmdb;
 

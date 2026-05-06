@@ -5,6 +5,7 @@ pub mod fanart;
 pub mod hot;
 pub mod omdb;
 pub mod sports;
+pub mod spotify;
 pub mod thetvdb;
 pub mod tmdb;
 
@@ -54,6 +55,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest(
             "/sports",
             sports::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
+        .nest(
+            "/spotify",
+            spotify::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
         .with_state(state)
 }
