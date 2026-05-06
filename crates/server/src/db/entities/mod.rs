@@ -1,6 +1,7 @@
 pub mod assets;
 pub mod bangumi_subjects;
 pub mod cache_entries;
+pub mod douban_subjects;
 pub mod fanart_assets;
 pub mod omdb_titles;
 pub mod rate_limit_buckets;
@@ -15,6 +16,7 @@ pub mod tmdb_objects;
 pub use assets::Entity as Assets;
 pub use bangumi_subjects::Entity as BangumiSubjects;
 pub use cache_entries::Entity as CacheEntries;
+pub use douban_subjects::Entity as DoubanSubjects;
 pub use fanart_assets::Entity as FanartAssets;
 pub use omdb_titles::Entity as OmdbTitles;
 pub use rate_limit_buckets::Entity as RateLimitBuckets;

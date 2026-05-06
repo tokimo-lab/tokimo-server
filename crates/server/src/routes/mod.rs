@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod bangumi;
+pub mod douban;
 pub mod fanart;
 pub mod hot;
 pub mod omdb;
@@ -41,6 +42,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest(
             "/fanart",
             fanart::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
+        .nest(
+            "/douban",
+            douban::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
         .nest(
             "/hot",
