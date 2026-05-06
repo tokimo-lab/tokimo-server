@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod bangumi;
+pub mod fanart;
 pub mod hot;
 pub mod omdb;
 pub mod sports;
@@ -36,6 +37,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest(
             "/bangumi",
             bangumi::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
+        .nest(
+            "/fanart",
+            fanart::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
         .nest(
             "/hot",

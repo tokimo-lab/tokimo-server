@@ -15,6 +15,7 @@ mod m20250101_000012_create_tmdb_images;
 mod m20250101_000013_create_omdb_titles;
 mod m20250101_000014_create_thetvdb;
 mod m20250101_000015_create_bangumi;
+mod m20250101_000016_create_fanart;
 
 pub struct Migrator;
 
@@ -37,6 +38,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250101_000013_create_omdb_titles::Migration),
             Box::new(m20250101_000014_create_thetvdb::Migration),
             Box::new(m20250101_000015_create_bangumi::Migration),
+            Box::new(m20250101_000016_create_fanart::Migration),
         ]
     }
 }

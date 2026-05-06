@@ -2,6 +2,7 @@ pub mod baidu_hot;
 pub mod baidu_sports;
 pub mod bangumi;
 pub mod common;
+pub mod fanart;
 pub mod omdb;
 pub mod thetvdb;
 pub mod tmdb;
