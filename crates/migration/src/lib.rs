@@ -20,6 +20,7 @@ mod m20250101_000017_create_douban;
 mod m20250101_000018_create_spotify;
 mod m20250101_000019_create_musicbrainz;
 mod m20250101_000020_create_deezer;
+mod m20250101_000021_create_lrclib;
 
 pub struct Migrator;
 
@@ -47,6 +48,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250101_000018_create_spotify::Migration),
             Box::new(m20250101_000019_create_musicbrainz::Migration),
             Box::new(m20250101_000020_create_deezer::Migration),
+            Box::new(m20250101_000021_create_lrclib::Migration),
         ]
     }
 }

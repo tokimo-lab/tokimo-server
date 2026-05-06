@@ -4,6 +4,7 @@ pub mod deezer;
 pub mod douban;
 pub mod fanart;
 pub mod hot;
+pub mod lrclib;
 pub mod musicbrainz;
 pub mod omdb;
 pub mod sports;
@@ -69,6 +70,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest(
             "/deezer",
             deezer::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
+        .nest(
+            "/lrclib",
+            lrclib::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
         .with_state(state)
 }
