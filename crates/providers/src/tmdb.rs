@@ -52,6 +52,81 @@ pub async fn fetch_movie(
     Ok((movie, raw_json))
 }
 
+/// TMDB API base URL.
+pub const TMDB_API_BASE: &str = "https://api.themoviedb.org/3";
+
+/// Generic TMDB GET that returns the raw JSON.
+///
+/// `path` should be a leading-slash absolute path under `/3/...`, e.g.
+/// `/tv/1399`, `/tv/1399/season/1`, `/person/287`. `extra_query` lets the
+/// caller append things like `append_to_response=credits` on top of the
+/// always-injected `api_key` and `language` params.
+pub async fn fetch_tmdb_path(
+    http: &reqwest::Client,
+    api_key: &str,
+    path: &str,
+    extra_query: &[(&str, &str)],
+) -> CoreResult<serde_json::Value> {
+    let mut url = format!(
+        "{}{}?api_key={}&language=zh-CN",
+        TMDB_API_BASE,
+        path,
+        urlencoding::encode(api_key)
+    );
+    for (k, v) in extra_query {
+        url.push('&');
+        url.push_str(&urlencoding::encode(k));
+        url.push('=');
+        url.push_str(&urlencoding::encode(v));
+    }
+    crate::common::http_get_json(http, &url).await
+}
+
+pub async fn fetch_tv(http: &reqwest::Client, api_key: &str, tv_id: i32) -> CoreResult<serde_json::Value> {
+    fetch_tmdb_path(
+        http,
+        api_key,
+        &format!("/tv/{}", tv_id),
+        &[("append_to_response", "external_ids,credits")],
+    )
+    .await
+}
+
+pub async fn fetch_tv_season(
+    http: &reqwest::Client,
+    api_key: &str,
+    tv_id: i32,
+    season: i32,
+) -> CoreResult<serde_json::Value> {
+    fetch_tmdb_path(
+        http,
+        api_key,
+        &format!("/tv/{}/season/{}", tv_id, season),
+        &[("append_to_response", "credits")],
+    )
+    .await
+}
+
+pub async fn fetch_tv_episode(
+    http: &reqwest::Client,
+    api_key: &str,
+    tv_id: i32,
+    season: i32,
+    episode: i32,
+) -> CoreResult<serde_json::Value> {
+    fetch_tmdb_path(
+        http,
+        api_key,
+        &format!("/tv/{}/season/{}/episode/{}", tv_id, season, episode),
+        &[("append_to_response", "credits")],
+    )
+    .await
+}
+
+pub async fn fetch_person(http: &reqwest::Client, api_key: &str, person_id: i32) -> CoreResult<serde_json::Value> {
+    fetch_tmdb_path(http, api_key, &format!("/person/{}", person_id), &[]).await
+}
+
 /// TMDB image base URL.
 pub const TMDB_IMAGE_BASE: &str = "https://image.tmdb.org/t/p/original";
 

@@ -1,19 +1,29 @@
 use axum::{
     extract::{Path, State},
+    response::Redirect,
     routing::get,
     Json, Router,
 };
 use sea_orm::{entity::*, EntityTrait};
 use serde::Serialize;
-use tokimo_providers::tmdb::{download_image, fetch_movie};
+use tokimo_providers::{
+    common::download_to_storage,
+    tmdb::{download_image, fetch_movie, fetch_person, fetch_tv, fetch_tv_episode, fetch_tv_season},
+};
 
 use crate::{
-    db::entities::{tmdb_movies, TmdbMovies},
+    db::entities::{tmdb_images, tmdb_movies, tmdb_objects, TmdbImages, TmdbMovies, TmdbObjects},
     AppError, AppResult, AppState,
 };
 
 pub fn routes() -> Router<AppState> {
-    Router::new().route("/movie/:id", get(get_movie))
+    Router::new()
+        .route("/movie/:id", get(get_movie))
+        .route("/tv/:id", get(get_tv))
+        .route("/tv/:id/season/:n", get(get_tv_season))
+        .route("/tv/:id/season/:s/episode/:e", get(get_tv_episode))
+        .route("/person/:id", get(get_person))
+        .route("/image/*path", get(get_image))
 }
 
 #[derive(Serialize)]
@@ -150,4 +160,209 @@ async fn movie_to_response(state: &AppState, movie: tmdb_movies::Model) -> AppRe
         poster_url,
         backdrop_url,
     })
+}
+
+// ─── generic JSON object endpoints (tv / season / episode / person) ────────
+
+async fn fetch_or_cache_object(
+    state: &AppState,
+    kind: &'static str,
+    key: String,
+    upstream: impl FnOnce(reqwest::Client, String) -> futures_util_compat::BoxFut + Send + 'static,
+) -> AppResult<serde_json::Value> {
+    if let Some(obj) = TmdbObjects::find_by_id((kind.to_string(), key.clone()))
+        .one(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+    {
+        return Ok(obj.raw_json);
+    }
+
+    let api_key = state
+        .config
+        .tmdb_api_key
+        .as_ref()
+        .ok_or_else(|| AppError::Internal("TMDB API key not configured".into()))?
+        .clone();
+
+    state.rate_limiter.acquire("tmdb").await?;
+
+    let cache_key = format!("tmdb:{}:{}", kind, key);
+    let http = state.http.clone();
+    let db = state.db.clone();
+    let key_clone = key.clone();
+
+    let raw_json: serde_json::Value = state
+        .single_flight
+        .do_once(&cache_key, move || async move {
+            // Re-check inside single-flight (cross-process winner may have written it).
+            if let Some(obj) = TmdbObjects::find_by_id((kind.to_string(), key_clone.clone()))
+                .one(&db)
+                .await
+                .map_err(|e| tokimo_core::CoreError::Database(e.to_string()))?
+            {
+                return Ok(obj.raw_json);
+            }
+
+            let raw_json = upstream(http, api_key).await?;
+
+            let am = tmdb_objects::ActiveModel {
+                kind: Set(kind.to_string()),
+                key: Set(key_clone.clone()),
+                raw_json: Set(raw_json.clone()),
+                fetched_at: Set(chrono::Utc::now().into()),
+            };
+            TmdbObjects::insert(am)
+                .exec(&db)
+                .await
+                .map_err(|e| tokimo_core::CoreError::Database(e.to_string()))?;
+
+            Ok(raw_json)
+        })
+        .await?;
+
+    Ok(raw_json)
+}
+
+mod futures_util_compat {
+    use std::future::Future;
+    use std::pin::Pin;
+    pub type BoxFut = Pin<Box<dyn Future<Output = tokimo_core::CoreResult<serde_json::Value>> + Send>>;
+}
+
+async fn get_tv(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Json<serde_json::Value>> {
+    let v = fetch_or_cache_object(&state, "tv", id.to_string(), move |http, api_key| {
+        Box::pin(async move { tokimo_providers::tmdb::fetch_tv(&http, &api_key, id).await })
+    })
+    .await?;
+    Ok(Json(v))
+}
+
+async fn get_tv_season(
+    State(state): State<AppState>,
+    Path((id, n)): Path<(i32, i32)>,
+) -> AppResult<Json<serde_json::Value>> {
+    let v = fetch_or_cache_object(&state, "tv_season", format!("{}:{}", id, n), move |http, api_key| {
+        Box::pin(async move { fetch_tv_season(&http, &api_key, id, n).await })
+    })
+    .await?;
+    Ok(Json(v))
+}
+
+async fn get_tv_episode(
+    State(state): State<AppState>,
+    Path((id, s, e)): Path<(i32, i32, i32)>,
+) -> AppResult<Json<serde_json::Value>> {
+    let v = fetch_or_cache_object(
+        &state,
+        "tv_episode",
+        format!("{}:{}:{}", id, s, e),
+        move |http, api_key| Box::pin(async move { fetch_tv_episode(&http, &api_key, id, s, e).await }),
+    )
+    .await?;
+    Ok(Json(v))
+}
+
+async fn get_person(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Json<serde_json::Value>> {
+    let v = fetch_or_cache_object(&state, "person", id.to_string(), move |http, api_key| {
+        Box::pin(async move { fetch_person(&http, &api_key, id).await })
+    })
+    .await?;
+    Ok(Json(v))
+}
+
+// ─── image proxy ────────────────────────────────────────────────────────────
+
+/// `/api/tmdb/image/*path` — accepts any TMDB image path (e.g.
+/// `original/abc.jpg` or `w500/def.png`); caches once to storage and
+/// redirects subsequent hits to the storage public URL.
+async fn get_image(State(state): State<AppState>, Path(path): Path<String>) -> AppResult<Redirect> {
+    // Normalize: caller may pass with or without leading slash; we always
+    // store with a leading slash so cache keys are stable.
+    let normalized = if path.starts_with('/') {
+        path.clone()
+    } else {
+        format!("/{}", path)
+    };
+
+    if let Some(row) = TmdbImages::find_by_id(normalized.clone())
+        .one(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+    {
+        let url = state
+            .storage
+            .url_for(&row.storage_key)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        return Ok(Redirect::temporary(&url));
+    }
+
+    state.rate_limiter.acquire("tmdb").await?;
+
+    let cache_key = format!("tmdb:image:{}", normalized);
+    let http = state.http.clone();
+    let storage = state.storage.clone();
+    let db = state.db.clone();
+    let path_clone = normalized.clone();
+
+    let stored: tmdb_images::Model = state
+        .single_flight
+        .do_once(&cache_key, move || async move {
+            if let Some(row) = TmdbImages::find_by_id(path_clone.clone())
+                .one(&db)
+                .await
+                .map_err(|e| tokimo_core::CoreError::Database(e.to_string()))?
+            {
+                return Ok(row);
+            }
+
+            // Use the path as-is against the TMDB CDN. `download_image` already
+            // prepends https://image.tmdb.org/t/p/original — but the API also
+            // supports per-size paths (w500/foo.jpg). We support both: if the
+            // path contains a size segment (first segment is a size token),
+            // hit the CDN root; otherwise treat as /original/.
+            let cdn_url = if path_clone
+                .trim_start_matches('/')
+                .split_once('/')
+                .map(|(seg, _)| seg.starts_with('w') || seg == "original")
+                .unwrap_or(false)
+            {
+                format!("https://image.tmdb.org/t/p{}", path_clone)
+            } else {
+                format!("https://image.tmdb.org/t/p/original{}", path_clone)
+            };
+
+            let (sha, key) = download_to_storage(&http, &cdn_url, storage.as_ref(), "tmdb").await?;
+
+            let am = tmdb_images::ActiveModel {
+                image_path: Set(path_clone.clone()),
+                storage_key: Set(key),
+                sha256: Set(sha),
+                fetched_at: Set(chrono::Utc::now().into()),
+            };
+            let inserted = TmdbImages::insert(am)
+                .exec_with_returning(&db)
+                .await
+                .map_err(|e| tokimo_core::CoreError::Database(e.to_string()))?;
+
+            Ok(inserted)
+        })
+        .await?;
+
+    let url = state
+        .storage
+        .url_for(&stored.storage_key)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(Redirect::temporary(&url))
+}
+
+// keep existing helpers used above
+#[allow(dead_code)]
+fn _suppress_unused() {
+    // tells clippy that fetch_tv is intentionally re-imported via use { ... }
+    let _ = fetch_tv;
+    let _ = fetch_movie;
+    let _ = download_image;
 }

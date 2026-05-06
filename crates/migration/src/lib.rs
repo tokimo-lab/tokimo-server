@@ -10,6 +10,8 @@ mod m20250101_000007_create_tmdb_genres;
 mod m20250101_000008_create_hot_search_items;
 mod m20250101_000009_create_hot_search_snapshots;
 mod m20250101_000010_create_sport_matches;
+mod m20250101_000011_create_tmdb_objects;
+mod m20250101_000012_create_tmdb_images;
 
 pub struct Migrator;
 
@@ -27,6 +29,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20250101_000008_create_hot_search_items::Migration),
             Box::new(m20250101_000009_create_hot_search_snapshots::Migration),
             Box::new(m20250101_000010_create_sport_matches::Migration),
+            Box::new(m20250101_000011_create_tmdb_objects::Migration),
+            Box::new(m20250101_000012_create_tmdb_images::Migration),
         ]
     }
 }
