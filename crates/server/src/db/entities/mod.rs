@@ -1,4 +1,5 @@
 pub mod assets;
+pub mod bangumi_subjects;
 pub mod cache_entries;
 pub mod omdb_titles;
 pub mod rate_limit_buckets;
@@ -11,6 +12,7 @@ pub mod tmdb_movies;
 pub mod tmdb_objects;
 
 pub use assets::Entity as Assets;
+pub use bangumi_subjects::Entity as BangumiSubjects;
 pub use cache_entries::Entity as CacheEntries;
 pub use omdb_titles::Entity as OmdbTitles;
 pub use rate_limit_buckets::Entity as RateLimitBuckets;
