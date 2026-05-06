@@ -1,5 +1,6 @@
 pub mod admin;
 pub mod hot;
+pub mod omdb;
 pub mod sports;
 pub mod tmdb;
 
@@ -21,6 +22,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest(
             "/tmdb",
             tmdb::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
+        .nest(
+            "/omdb",
+            omdb::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
         .nest(
             "/hot",
