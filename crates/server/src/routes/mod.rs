@@ -23,7 +23,7 @@ pub mod wikipedia;
 use axum::{middleware, routing::get, Router};
 
 use crate::{
-    middleware::{admin_auth, service_auth},
+    middleware::{admin_auth, record_metrics, service_auth},
     AppState,
 };
 
@@ -35,87 +35,33 @@ pub fn api_routes(state: AppState) -> Router {
             "/admin",
             admin::protected_routes().route_layer(middleware::from_fn_with_state(state.clone(), admin_auth)),
         )
-        .nest(
-            "/tmdb",
-            tmdb::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/omdb",
-            omdb::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/thetvdb",
-            thetvdb::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/bangumi",
-            bangumi::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/fanart",
-            fanart::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/douban",
-            douban::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/hot",
-            hot::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/sports",
-            sports::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/spotify",
-            spotify::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/musicbrainz",
-            musicbrainz::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/deezer",
-            deezer::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/lrclib",
-            lrclib::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/openmeteo",
-            openmeteo::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/nominatim",
-            nominatim::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/qidian",
-            qidian::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/wikipedia",
-            wikipedia::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/holiday",
-            holiday::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/geocoding",
-            geocoding::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/assrt",
-            assrt::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
-        .nest(
-            "/github",
-            github::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
-        )
+        .nest("/tmdb", provider_routes(tmdb::routes(), &state))
+        .nest("/omdb", provider_routes(omdb::routes(), &state))
+        .nest("/thetvdb", provider_routes(thetvdb::routes(), &state))
+        .nest("/bangumi", provider_routes(bangumi::routes(), &state))
+        .nest("/fanart", provider_routes(fanart::routes(), &state))
+        .nest("/douban", provider_routes(douban::routes(), &state))
+        .nest("/hot", provider_routes(hot::routes(), &state))
+        .nest("/sports", provider_routes(sports::routes(), &state))
+        .nest("/spotify", provider_routes(spotify::routes(), &state))
+        .nest("/musicbrainz", provider_routes(musicbrainz::routes(), &state))
+        .nest("/deezer", provider_routes(deezer::routes(), &state))
+        .nest("/lrclib", provider_routes(lrclib::routes(), &state))
+        .nest("/openmeteo", provider_routes(openmeteo::routes(), &state))
+        .nest("/nominatim", provider_routes(nominatim::routes(), &state))
+        .nest("/qidian", provider_routes(qidian::routes(), &state))
+        .nest("/wikipedia", provider_routes(wikipedia::routes(), &state))
+        .nest("/holiday", provider_routes(holiday::routes(), &state))
+        .nest("/geocoding", provider_routes(geocoding::routes(), &state))
+        .nest("/assrt", provider_routes(assrt::routes(), &state))
+        .nest("/github", provider_routes(github::routes(), &state))
         .with_state(state)
+}
+
+fn provider_routes(routes: Router<AppState>, state: &AppState) -> Router<AppState> {
+    routes
+        .route_layer(middleware::from_fn_with_state(state.clone(), record_metrics))
+        .route_layer(middleware::from_fn_with_state(state.clone(), service_auth))
 }
 
 async fn health() -> &'static str {

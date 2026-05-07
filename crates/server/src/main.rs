@@ -13,6 +13,7 @@ use tower_http::{
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use tokimo_server::metrics::MetricsStore;
 use tokimo_server::{infra, routes, AppConfig, AppState};
 
 #[tokio::main]
@@ -59,6 +60,7 @@ async fn main() -> anyhow::Result<()> {
         rate_limiter,
         http,
         config: config.clone(),
+        metrics: Arc::new(MetricsStore::new()),
     };
 
     // Spawn sports prewarm task
