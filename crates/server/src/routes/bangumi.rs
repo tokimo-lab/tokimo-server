@@ -21,11 +21,13 @@ pub fn routes() -> Router<AppState> {
 }
 
 fn require_user_agent(state: &AppState) -> AppResult<String> {
-    state
+    Ok(state
         .config
         .bangumi_user_agent
         .clone()
-        .ok_or_else(|| AppError::Internal("BANGUMI_USER_AGENT not configured".into()))
+        .unwrap_or_else(|| {
+            "tokimo-server/1.0 (https://github.com/tokimo-lab/tokimo-server)".to_string()
+        }))
 }
 
 async fn get_subject(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Json<serde_json::Value>> {

@@ -87,7 +87,7 @@ const PROVIDERS: ProviderRow[] = [
     key: "douban",
     provider: "Douban",
     prefix: "/api/douban/...",
-    sample: "/api/douban/subject/26266893",
+    sample: "/api/douban/search?q=%E8%82%96%E7%94%B3%E5%85%8B",
     rateLimit: "1/s",
     authRequired: "no",
     envVars: [],
@@ -204,7 +204,7 @@ const PROVIDERS: ProviderRow[] = [
     key: "baidu_hot",
     provider: "Baidu Hot",
     prefix: "/api/hot/list",
-    sample: "/api/hot/list?id=weibo",
+    sample: "/api/hot/list?id=bilibili",
     rateLimit: "per-source",
     authRequired: "no",
     envVars: [],
@@ -213,7 +213,7 @@ const PROVIDERS: ProviderRow[] = [
     key: "baidu_sports",
     provider: "Baidu Sports",
     prefix: "/api/sports/schedule",
-    sample: "/api/sports/schedule?type=hot",
+    sample: "/api/sports/schedule?type=hot&date={TODAY}",
     rateLimit: "10/s",
     authRequired: "no",
     envVars: [],
@@ -226,6 +226,11 @@ interface FetchResult {
   contentType: string;
   body: string;
   error?: string;
+}
+
+function expandSample(sample: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  return sample.replace(/\{TODAY\}/g, today);
 }
 
 function ProviderConfigsPage() {
@@ -257,9 +262,10 @@ function ProviderConfigsPage() {
     setActive(row);
     setResult(null);
     setLoading(true);
+    const url = expandSample(row.sample);
     const started = performance.now();
     try {
-      const res = await fetch(row.sample, {
+      const res = await fetch(url, {
         headers: key ? { Authorization: `Bearer ${key}` } : undefined,
       });
       const text = await res.text();
@@ -439,7 +445,7 @@ function ProviderConfigsPage() {
         <ProviderResponseModal
           open={active !== null}
           provider={active?.provider}
-          sample={active?.sample}
+          sample={active ? expandSample(active.sample) : undefined}
           loading={loading}
           result={result}
           onClose={handleCloseResponse}
