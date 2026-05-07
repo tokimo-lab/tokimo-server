@@ -1,5 +1,7 @@
+import ConstructionPage from "../components/ConstructionPage";
+
 function DashboardPage() {
-  return <div>Dashboard (TODO)</div>;
+  return <ConstructionPage pageName="Dashboard" />;
 }
 
 export default DashboardPage;

@@ -1,5 +1,7 @@
+import ConstructionPage from "../components/ConstructionPage";
+
 function SettingsPage() {
-  return <div>Settings (TODO)</div>;
+  return <ConstructionPage pageName="Settings" />;
 }
 
 export default SettingsPage;
