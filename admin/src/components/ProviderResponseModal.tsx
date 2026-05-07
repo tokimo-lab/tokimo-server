@@ -56,7 +56,7 @@ function ProviderResponseModal({
       ]}
     >
       {contextHolder}
-      <div className="min-w-0 space-y-4">
+      <div className="min-w-0">
         {sample && (
           <div>
             <code className="break-all text-xs text-fg-muted-light dark:text-fg-muted-dark">
@@ -65,12 +65,18 @@ function ProviderResponseModal({
           </div>
         )}
         {loading && (
-          <div className="py-12 text-center text-fg-muted-light dark:text-fg-muted-dark">
+          <div
+            className={
+              sample
+                ? "mt-4 py-12 text-center text-fg-muted-light dark:text-fg-muted-dark"
+                : "py-12 text-center text-fg-muted-light dark:text-fg-muted-dark"
+            }
+          >
             {t("providers.test.sending")}
           </div>
         )}
         {result && (
-          <div className="space-y-3">
+          <div className={sample || loading ? "mt-4" : undefined}>
             <div className="flex flex-wrap items-center gap-4">
               <span className="flex items-center gap-2">
                 <span className="text-sm font-medium">
@@ -107,7 +113,7 @@ function ProviderResponseModal({
                 </span>
               )}
             </div>
-            <div>
+            <div className="mt-3">
               <div className="mb-2 text-sm font-medium">
                 {t("providers.test.body")}:
               </div>

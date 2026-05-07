@@ -3,26 +3,20 @@ import {
   DashboardOutlined,
   DatabaseOutlined,
   KeyOutlined,
+  LeftOutlined,
   LogoutOutlined,
   MoonOutlined,
+  RightOutlined,
   SettingOutlined,
   SunOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import {
-  Layout as AntLayout,
-  Breadcrumb,
-  Button,
-  Dropdown,
-  Menu,
-  Segmented,
-} from "antd";
+import { Breadcrumb, Button, Dropdown, Menu, Segmented } from "antd";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { type AdminThemeMode, useAdminTheme } from "../theme";
 
-const { Header, Content, Sider } = AntLayout;
 const SIDER_COLLAPSED_STORAGE_KEY = "tks_admin_sider_collapsed";
 
 const routes = [
@@ -55,24 +49,20 @@ function Layout() {
 
   const currentLang = i18n.language?.startsWith("zh") ? "zh" : "en";
 
+  const toggleCollapsed = () => {
+    const nextCollapsed = !collapsed;
+    localStorage.setItem(SIDER_COLLAPSED_STORAGE_KEY, String(nextCollapsed));
+    setCollapsed(nextCollapsed);
+  };
+
   return (
-    <AntLayout className="flex min-h-screen w-full bg-bg-light dark:bg-bg-dark">
-      <Sider
-        className="min-h-full border-r border-border-light bg-white dark:border-border-dark dark:bg-[#111114] [&_.ant-layout-sider-children]:flex [&_.ant-layout-sider-children]:flex-col [&_.ant-layout-sider-trigger]:!border-t [&_.ant-layout-sider-trigger]:!border-border-light [&_.ant-layout-sider-trigger]:!bg-white [&_.ant-layout-sider-trigger]:!text-fg-muted-light dark:[&_.ant-layout-sider-trigger]:!border-border-dark dark:[&_.ant-layout-sider-trigger]:!bg-[#111114] dark:[&_.ant-layout-sider-trigger]:!text-fg-muted-dark"
-        collapsible
-        collapsed={collapsed}
-        collapsedWidth={56}
-        onCollapse={(nextCollapsed) => {
-          localStorage.setItem(
-            SIDER_COLLAPSED_STORAGE_KEY,
-            String(nextCollapsed),
-          );
-          setCollapsed(nextCollapsed);
-        }}
-        theme={resolvedMode}
-        width={240}
+    <div className="flex min-h-screen w-full bg-bg-light dark:bg-bg-dark">
+      <aside
+        className={`flex min-h-screen flex-none flex-col overflow-hidden border-r border-border-light bg-white transition-[width] duration-200 dark:border-border-dark dark:bg-[#111114] ${
+          collapsed ? "w-[56px]" : "w-[240px]"
+        }`}
       >
-        <div className="flex h-[52px] items-center gap-2 border-b border-border-light px-4 whitespace-nowrap dark:border-border-dark">
+        <div className="flex h-[52px] flex-none items-center gap-2 border-b border-border-light px-4 whitespace-nowrap dark:border-border-dark">
           <span
             className="gradient-bg h-5 w-5 flex-none rounded-input"
             aria-hidden="true"
@@ -88,6 +78,7 @@ function Layout() {
         </div>
         <Menu
           className="border-0 bg-transparent px-2 py-3 [&_.ant-menu-item]:relative [&_.ant-menu-item]:my-0.5 [&_.ant-menu-item]:h-9 [&_.ant-menu-item]:rounded-input [&_.ant-menu-item]:leading-9 [&_.ant-menu-item]:text-fg-muted-light dark:[&_.ant-menu-item]:text-fg-muted-dark [&_.ant-menu-item:hover]:!bg-zinc-100 dark:[&_.ant-menu-item:hover]:!bg-[#18181c] [&_.ant-menu-item:hover]:!text-fg-light dark:[&_.ant-menu-item:hover]:!text-fg-dark [&_.ant-menu-item-selected]:!bg-zinc-100 dark:[&_.ant-menu-item-selected]:!bg-[#18181c] [&_.ant-menu-item-selected]:!text-fg-light dark:[&_.ant-menu-item-selected]:!text-fg-dark"
+          inlineCollapsed={collapsed}
           mode="inline"
           selectedKeys={[selectedKey]}
           theme={resolvedMode}
@@ -105,9 +96,17 @@ function Layout() {
             ),
           }))}
         />
-      </Sider>
-      <AntLayout className="min-h-screen bg-bg-light dark:bg-bg-dark">
-        <Header className="flex h-[52px] items-center justify-between border-b border-border-light bg-panel-light px-6 leading-[52px] dark:border-border-dark dark:bg-panel-dark">
+        <button
+          type="button"
+          className="mt-auto flex h-12 w-full cursor-pointer items-center justify-center border-t border-border-light bg-white text-fg-muted-light hover:bg-zinc-100 dark:border-border-dark dark:bg-[#111114] dark:text-fg-muted-dark dark:hover:bg-[#18181c]"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          onClick={toggleCollapsed}
+        >
+          {collapsed ? <RightOutlined /> : <LeftOutlined />}
+        </button>
+      </aside>
+      <div className="min-h-screen flex-1 bg-bg-light dark:bg-bg-dark">
+        <header className="flex h-[52px] items-center justify-between border-b border-border-light bg-panel-light px-6 leading-[52px] dark:border-border-dark dark:bg-panel-dark">
           <div className="flex min-w-0 items-center gap-4">
             <Breadcrumb
               className="text-xs text-fg-muted-light dark:text-fg-muted-dark"
@@ -161,14 +160,12 @@ function Layout() {
               />
             </Dropdown>
           </div>
-        </Header>
-        <AntLayout className="bg-bg-light dark:bg-bg-dark">
-          <Content className="m-0 min-h-[calc(100vh-52px)] bg-bg-light p-6 dark:bg-bg-dark">
-            <Outlet />
-          </Content>
-        </AntLayout>
-      </AntLayout>
-    </AntLayout>
+        </header>
+        <main className="m-0 min-h-[calc(100vh-52px)] bg-bg-light p-6 dark:bg-bg-dark">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 }
 

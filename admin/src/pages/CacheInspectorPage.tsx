@@ -29,21 +29,22 @@ function CacheInspectorPage() {
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="mb-1 text-2xl font-semibold text-fg-light dark:text-fg-dark">
+    <div className="mx-auto w-full max-w-7xl">
+      <header className="mb-8">
+        <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
           {t("cache.title")}
         </h1>
-        <p className="text-sm text-fg-muted-light dark:text-fg-muted-dark">
+        <p className="mt-1 text-sm text-fg-muted-light dark:text-fg-muted-dark">
           {t("cache.tablesIntro")}
         </p>
-      </div>
+      </header>
       <Alert
+        className="mb-6"
         type="warning"
         showIcon
         message={t("cache.comingSoonTitle")}
         description={
-          <div className="space-y-2">
+          <div>
             <div>
               {t("cache.comingSoonDescriptionPrefix")}
               <code className="mx-1 rounded bg-fill-tertiary-light px-1.5 py-0.5 text-xs dark:bg-fill-tertiary-dark">
@@ -51,16 +52,16 @@ function CacheInspectorPage() {
               </code>
               {t("cache.comingSoonDescriptionMiddle")}
             </div>
-            <div className="space-y-1">
+            <div className="mt-2">
               <code className="block break-all rounded bg-fill-tertiary-light px-2 py-1 text-xs dark:bg-fill-tertiary-dark">
                 GET /api/admin/cache/:table?limit=50
               </code>
-              {t("cache.comingSoonDescriptionAnd")}
-              <code className="block break-all rounded bg-fill-tertiary-light px-2 py-1 text-xs dark:bg-fill-tertiary-dark">
+              <div className="mt-1">{t("cache.comingSoonDescriptionAnd")}</div>
+              <code className="mt-1 block break-all rounded bg-fill-tertiary-light px-2 py-1 text-xs dark:bg-fill-tertiary-dark">
                 POST /api/admin/cache/:table/:id/invalidate
               </code>
             </div>
-            <div>
+            <div className="mt-2">
               {t("cache.comingSoonDescriptionSuffix")}
               <code className="mx-1 rounded bg-fill-tertiary-light px-1.5 py-0.5 text-xs dark:bg-fill-tertiary-dark">
                 id · fetched_at · size_estimate

@@ -1,14 +1,4 @@
-import {
-  Alert,
-  Button,
-  Input,
-  Space,
-  Spin,
-  Table,
-  Tag,
-  Tooltip,
-  message,
-} from "antd";
+import { Alert, Button, Input, Spin, Table, Tag, Tooltip, message } from "antd";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -372,13 +362,13 @@ function ProviderConfigsPage() {
         vars.length === 0 ? (
           <span className="text-fg-muted-light dark:text-fg-muted-dark">—</span>
         ) : (
-          <Space size={[4, 4]} wrap>
+          <div className="flex flex-wrap gap-1">
             {vars.map((v) => (
               <Tag key={v} className="text-xs">
                 {v}
               </Tag>
             ))}
-          </Space>
+          </div>
         ),
     },
     {
@@ -394,34 +384,36 @@ function ProviderConfigsPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-7xl">
       {contextHolder}
-      <div>
-        <h1 className="mb-1 text-2xl font-semibold text-fg-light dark:text-fg-dark">
+      <header className="mb-8">
+        <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
           {t("providers.title")}
         </h1>
-        <p className="mb-6 text-sm text-fg-muted-light dark:text-fg-muted-dark">
+        <p className="mt-1 text-sm text-fg-muted-light dark:text-fg-muted-dark">
           {t("providers.description", { count: PROVIDERS.length })}
         </p>
-      </div>
+      </header>
       <Alert
+        className="mb-6"
         type="info"
         showIcon
         message={t("providers.readOnlyTitle")}
         description={t("providers.readOnlyDescription")}
       />
-      <Space.Compact className="w-full">
+      <div className="mb-6 flex w-full gap-2">
         <Input
           addonBefore={t("providers.serviceKey.label")}
           placeholder={t("providers.serviceKey.placeholder")}
           value={serviceKey}
           onChange={(e) => setServiceKey(e.target.value)}
           allowClear
+          className="min-w-0 flex-1"
         />
         <Button onClick={handleClearKey} disabled={!serviceKey}>
           {t("providers.serviceKey.clear")}
         </Button>
-      </Space.Compact>
+      </div>
       <Table
         dataSource={PROVIDERS}
         columns={columns}

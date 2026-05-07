@@ -1,4 +1,4 @@
-import { Button, Form, Input, Modal, Space, Table, message } from "antd";
+import { Button, Form, Input, Modal, Table, message } from "antd";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -97,8 +97,13 @@ function ServiceKeysPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="mb-4">
+    <div className="mx-auto w-full max-w-7xl">
+      <header className="mb-8">
+        <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
+          {t("nav.serviceKeys")}
+        </h1>
+      </header>
+      <div className="mb-6">
         <Button type="primary" onClick={() => setModalVisible(true)}>
           {t("serviceKeys.createBtn")}
         </Button>
@@ -121,13 +126,13 @@ function ServiceKeysPage() {
         footer={null}
       >
         {createdToken ? (
-          <div className="space-y-4">
+          <div>
             <p>{t("serviceKeys.tokenCreatedHint")}</p>
             <Input.TextArea
               value={createdToken}
               rows={3}
               readOnly
-              className="min-w-0 break-all font-mono text-xs"
+              className="mt-4 min-w-0 break-all font-mono text-xs"
             />
             <Button
               type="primary"
@@ -136,6 +141,7 @@ function ServiceKeysPage() {
                 setCreatedToken(null);
               }}
               block
+              className="mt-4"
             >
               {t("common.close")}
             </Button>
@@ -150,14 +156,14 @@ function ServiceKeysPage() {
               <Input />
             </Form.Item>
             <Form.Item className="mb-0">
-              <Space>
+              <div className="flex items-center gap-2">
                 <Button type="primary" htmlType="submit">
                   {t("common.create")}
                 </Button>
                 <Button onClick={() => setModalVisible(false)}>
                   {t("common.cancel")}
                 </Button>
-              </Space>
+              </div>
             </Form.Item>
           </Form>
         )}
