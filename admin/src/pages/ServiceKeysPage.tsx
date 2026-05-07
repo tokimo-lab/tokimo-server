@@ -1,5 +1,6 @@
 import { Button, Form, Input, Modal, Space, Table, message } from "antd";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   createServiceKey,
   deleteServiceKey,
@@ -16,6 +17,7 @@ interface ServiceKey {
 }
 
 function ServiceKeysPage() {
+  const { t } = useTranslation();
   const [keys, setKeys] = useState<ServiceKey[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -43,7 +45,7 @@ function ServiceKeysPage() {
     try {
       const result = await createServiceKey(values);
       setCreatedToken(result.token);
-      message.success("Service key created");
+      message.success(t("serviceKeys.toasts.created"));
       form.resetFields();
       loadKeys();
     } catch (error) {
@@ -54,7 +56,7 @@ function ServiceKeysPage() {
   const handleDelete = async (id: string) => {
     try {
       await deleteServiceKey(id);
-      message.success("Service key deleted");
+      message.success(t("serviceKeys.toasts.deleted"));
       loadKeys();
     } catch (error) {
       message.error(String(error));
@@ -62,21 +64,33 @@ function ServiceKeysPage() {
   };
 
   const columns = [
-    { title: "Name", dataIndex: "name", key: "name" },
-    { title: "Prefix", dataIndex: "token_prefix", key: "token_prefix" },
     {
-      title: "Enabled",
+      title: t("serviceKeys.columns.name"),
+      dataIndex: "name",
+      key: "name",
+    },
+    {
+      title: t("serviceKeys.columns.prefix"),
+      dataIndex: "token_prefix",
+      key: "token_prefix",
+    },
+    {
+      title: t("serviceKeys.columns.enabled"),
       dataIndex: "enabled",
       key: "enabled",
-      render: (v: boolean) => (v ? "Yes" : "No"),
+      render: (v: boolean) => (v ? t("common.yes") : t("common.no")),
     },
-    { title: "Created", dataIndex: "created_at", key: "created_at" },
     {
-      title: "Action",
+      title: t("serviceKeys.columns.created"),
+      dataIndex: "created_at",
+      key: "created_at",
+    },
+    {
+      title: t("serviceKeys.columns.action"),
       key: "action",
       render: (_: unknown, record: ServiceKey) => (
         <Button danger size="small" onClick={() => handleDelete(record.id)}>
-          Delete
+          {t("common.delete")}
         </Button>
       ),
     },
@@ -86,7 +100,7 @@ function ServiceKeysPage() {
     <div>
       <div style={{ marginBottom: 16 }}>
         <Button type="primary" onClick={() => setModalVisible(true)}>
-          Create Service Key
+          {t("serviceKeys.createBtn")}
         </Button>
       </div>
       <Table
@@ -97,7 +111,7 @@ function ServiceKeysPage() {
       />
 
       <Modal
-        title="Create Service Key"
+        title={t("serviceKeys.modalTitle")}
         open={modalVisible}
         onCancel={() => {
           setModalVisible(false);
@@ -107,9 +121,7 @@ function ServiceKeysPage() {
       >
         {createdToken ? (
           <div>
-            <p>
-              Token created successfully. Copy it now (it won't be shown again):
-            </p>
+            <p>{t("serviceKeys.tokenCreatedHint")}</p>
             <Input.TextArea value={createdToken} rows={3} readOnly />
             <Button
               type="primary"
@@ -119,20 +131,26 @@ function ServiceKeysPage() {
               }}
               style={{ marginTop: 16 }}
             >
-              Close
+              {t("common.close")}
             </Button>
           </div>
         ) : (
           <Form form={form} onFinish={handleCreate} layout="vertical">
-            <Form.Item label="Name" name="name" rules={[{ required: true }]}>
+            <Form.Item
+              label={t("serviceKeys.nameLabel")}
+              name="name"
+              rules={[{ required: true }]}
+            >
               <Input />
             </Form.Item>
             <Form.Item>
               <Space>
                 <Button type="primary" htmlType="submit">
-                  Create
+                  {t("common.create")}
                 </Button>
-                <Button onClick={() => setModalVisible(false)}>Cancel</Button>
+                <Button onClick={() => setModalVisible(false)}>
+                  {t("common.cancel")}
+                </Button>
               </Space>
             </Form.Item>
           </Form>

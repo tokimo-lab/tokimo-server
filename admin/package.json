@@ -10,17 +10,20 @@
     "lint": "biome check src"
   },
   "dependencies": {
+    "antd": "^5.22.7",
+    "i18next": "^26.0.10",
+    "i18next-browser-languagedetector": "^8.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router": "^7.1.3",
-    "antd": "^5.22.7"
+    "react-i18next": "^17.0.7",
+    "react-router": "^7.1.3"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^6.0.7",
-    "typescript": "^5.7.3",
     "@biomejs/biome": "^1.9.4",
     "@types/react": "^19.0.6",
-    "@types/react-dom": "^19.0.2"
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7"
   }
 }

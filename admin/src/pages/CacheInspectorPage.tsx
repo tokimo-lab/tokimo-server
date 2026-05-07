@@ -1,4 +1,5 @@
 import { Alert, List, Tag, Typography } from "antd";
+import { useTranslation } from "react-i18next";
 
 const { Title, Paragraph } = Typography;
 
@@ -27,27 +28,31 @@ const CACHE_TABLES: Array<{ table: string; provider: string }> = [
 ];
 
 function CacheInspectorPage() {
+  const { t } = useTranslation();
+
   return (
     <div>
-      <Title level={3}>Cache Inspector</Title>
+      <Title level={3}>{t("cache.title")}</Title>
       <Alert
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}
-        message="Coming soon"
+        message={t("cache.comingSoonTitle")}
         description={
           <>
-            The admin <code>/api/admin/cache</code> endpoint is currently a stub returning an empty list.
-            Once a per-table inspect endpoint lands (planned: <code>GET /api/admin/cache/:table?limit=50</code>{" "}
-            and <code>POST /api/admin/cache/:table/:id/invalidate</code>), this page will render last-N rows
-            with <code>id · fetched_at · size_estimate</code> plus a "force refresh" action.
+            {t("cache.comingSoonDescriptionPrefix")}
+            <code>/api/admin/cache</code>
+            {t("cache.comingSoonDescriptionMiddle")}
+            <code>GET /api/admin/cache/:table?limit=50</code>
+            {t("cache.comingSoonDescriptionAnd")}
+            <code>POST /api/admin/cache/:table/:id/invalidate</code>
+            {t("cache.comingSoonDescriptionSuffix")}
+            <code>id · fetched_at · size_estimate</code>
+            {t("cache.comingSoonDescriptionTail")}
           </>
         }
       />
-      <Paragraph>
-        <strong>Provider cache tables</strong> currently persisted by the workspace (one row per upstream
-        resource, plus a TTL column for expiry):
-      </Paragraph>
+      <Paragraph>{t("cache.tablesIntro")}</Paragraph>
       <List
         size="small"
         bordered

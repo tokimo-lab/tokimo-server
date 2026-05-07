@@ -1,18 +1,20 @@
 import { Button, Card, Form, Input, message } from "antd";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { login } from "../api/client";
 
 function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const onFinish = async (values: { bootstrap_key: string }) => {
     setLoading(true);
     try {
       const { token } = await login(values.bootstrap_key);
       localStorage.setItem("tokimo-admin-jwt", token);
-      message.success("Login successful");
+      message.success(t("login.success"));
       navigate("/");
     } catch (error) {
       message.error(String(error));
@@ -30,18 +32,20 @@ function LoginPage() {
         height: "100vh",
       }}
     >
-      <Card title="Admin Login" style={{ width: 400 }}>
+      <Card title={t("login.cardTitle")} style={{ width: 400 }}>
         <Form onFinish={onFinish} layout="vertical">
           <Form.Item
-            label="Bootstrap Key"
+            label={t("login.bootstrapKeyLabel")}
             name="bootstrap_key"
-            rules={[{ required: true, message: "Please input bootstrap key" }]}
+            rules={[
+              { required: true, message: t("login.bootstrapKeyRequired") },
+            ]}
           >
             <Input.Password />
           </Form.Item>
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={loading} block>
-              Login
+              {t("login.submit")}
             </Button>
           </Form.Item>
         </Form>
