@@ -81,7 +81,7 @@ impl RequestCache {
     async fn clear(&self) {}
 }
 
-const DEFAULT_CACHE_TTL: Duration = Duration::from_hours(1);
+const DEFAULT_CACHE_TTL: Duration = Duration::from_secs(60 * 60);
 const FRODO_BASE_URL: &str = "https://frodo.douban.com/api/v2";
 const FRODO_API_KEY: &str = "0dad551ec0f84ed02907ff5c42e8ec70";
 const FRODO_USER_AGENT: &str =
