@@ -18,10 +18,24 @@ const zh: Resources = {
     language: "语言",
   },
   nav: {
+    dashboard: "仪表盘",
+    keys: "服务密钥",
+    providers: "Provider 配置",
+    cache: "缓存检查",
+    settings: "设置",
     appTitle: "Tokimo 服务管理后台",
     serviceKeys: "服务密钥",
-    providers: "Provider 配置",
-    cache: "缓存查看器",
+  },
+  header: {
+    logout: "登出",
+    theme: {
+      light: "浅色",
+      dark: "深色",
+    },
+    language: {
+      zh: "中文",
+      en: "English",
+    },
   },
   login: {
     cardTitle: "管理员登录",

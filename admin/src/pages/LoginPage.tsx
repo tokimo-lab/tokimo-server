@@ -15,7 +15,7 @@ function LoginPage() {
       const { token } = await login(values.bootstrap_key);
       localStorage.setItem("tokimo-admin-jwt", token);
       message.success(t("login.success"));
-      navigate("/");
+      navigate("/dashboard");
     } catch (error) {
       message.error(String(error));
     } finally {

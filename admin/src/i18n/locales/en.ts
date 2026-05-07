@@ -16,10 +16,24 @@ const en = {
     language: "Language",
   },
   nav: {
-    appTitle: "Tokimo Server Admin",
-    serviceKeys: "Service Keys",
+    dashboard: "Dashboard",
+    keys: "Service Keys",
     providers: "Provider Configs",
     cache: "Cache Inspector",
+    settings: "Settings",
+    appTitle: "Tokimo Server Admin",
+    serviceKeys: "Service Keys",
+  },
+  header: {
+    logout: "Logout",
+    theme: {
+      light: "Light",
+      dark: "Dark",
+    },
+    language: {
+      zh: "中文",
+      en: "English",
+    },
   },
   login: {
     cardTitle: "Admin Login",
