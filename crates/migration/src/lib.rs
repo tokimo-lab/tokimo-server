@@ -27,6 +27,7 @@ mod m20250101_000030_create_openmeteo_forecasts;
 mod m20250101_000031_create_nominatim_geocode;
 mod m20250101_000032_create_holiday_years;
 mod m20250101_000033_create_geocoding_results;
+mod m20250101_000040_create_assrt;
 
 pub struct Migrator;
 
@@ -61,6 +62,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250101_000023_create_wikipedia::Migration),
             Box::new(m20250101_000032_create_holiday_years::Migration),
             Box::new(m20250101_000033_create_geocoding_results::Migration),
+            Box::new(m20250101_000040_create_assrt::Migration),
         ]
     }
 }

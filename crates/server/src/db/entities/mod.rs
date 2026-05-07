@@ -1,4 +1,6 @@
 pub mod assets;
+pub mod assrt_searches;
+pub mod assrt_sub_details;
 pub mod bangumi_subjects;
 pub mod cache_entries;
 pub mod deezer_albums;
@@ -31,6 +33,8 @@ pub mod tmdb_objects;
 pub mod wikipedia_summaries;
 
 pub use assets::Entity as Assets;
+pub use assrt_searches::Entity as AssrtSearches;
+pub use assrt_sub_details::Entity as AssrtSubDetails;
 pub use bangumi_subjects::Entity as BangumiSubjects;
 pub use cache_entries::Entity as CacheEntries;
 pub use deezer_albums::Entity as DeezerAlbums;

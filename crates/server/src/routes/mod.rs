@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod assrt;
 pub mod bangumi;
 pub mod deezer;
 pub mod douban;
@@ -104,6 +105,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest(
             "/geocoding",
             geocoding::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
+        .nest(
+            "/assrt",
+            assrt::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
         .with_state(state)
 }
