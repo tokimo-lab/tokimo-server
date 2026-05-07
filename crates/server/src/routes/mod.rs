@@ -3,6 +3,7 @@ pub mod bangumi;
 pub mod deezer;
 pub mod douban;
 pub mod fanart;
+pub mod holiday;
 pub mod hot;
 pub mod lrclib;
 pub mod musicbrainz;
@@ -90,6 +91,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest(
             "/qidian",
             qidian::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
+        .nest(
+            "/wikipedia",
+            wikipedia::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
         .with_state(state)
 }
