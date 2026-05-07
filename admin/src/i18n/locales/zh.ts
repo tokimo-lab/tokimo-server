@@ -76,6 +76,13 @@ const zh: Resources = {
       saved: "已保存到 localStorage",
       missing: "Service key 为空 — 请求很可能 401",
       copied: "URL 已复制",
+      promptTitle: "需要 Service Key",
+      promptDescription:
+        "请输入 Bearer service key。会以 base64 编码后保存到 localStorage，不上传服务器。",
+      promptSubmit: "保存并发送",
+      promptRequired: "请输入 service key",
+      clear: "清除",
+      cleared: "已清除 service key",
     },
     test: {
       sendBtn: "发送",

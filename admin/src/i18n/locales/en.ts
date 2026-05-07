@@ -75,6 +75,13 @@ const en = {
       saved: "Saved to localStorage",
       missing: "Service key is empty — request will likely 401",
       copied: "URL copied",
+      promptTitle: "Service Key required",
+      promptDescription:
+        "Enter your Bearer service key. It will be base64-encoded and persisted in localStorage; no server round-trip.",
+      promptSubmit: "Save & Send",
+      promptRequired: "Please input service key",
+      clear: "Clear",
+      cleared: "Service key cleared",
     },
     test: {
       sendBtn: "Send",

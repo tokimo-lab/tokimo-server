@@ -2,16 +2,28 @@ import {
   Alert,
   Button,
   Input,
-  Modal,
   Space,
+  Spin,
   Table,
   Tag,
   Tooltip,
   Typography,
   message,
 } from "antd";
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  clearServiceKey,
+  loadServiceKey,
+  saveServiceKey,
+} from "../utils/serviceKey";
+
+const ServiceKeyPromptModal = lazy(
+  () => import("../components/ServiceKeyPromptModal"),
+);
+const ProviderResponseModal = lazy(
+  () => import("../components/ProviderResponseModal"),
+);
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -208,8 +220,6 @@ const PROVIDERS: ProviderRow[] = [
   },
 ];
 
-const SK_STORAGE_KEY = "tokimo-admin-service-key";
-
 interface FetchResult {
   status: number;
   duration: number;
@@ -220,16 +230,16 @@ interface FetchResult {
 
 function ProviderConfigsPage() {
   const { t } = useTranslation();
-  const [serviceKey, setServiceKey] = useState<string>(
-    () => localStorage.getItem(SK_STORAGE_KEY) ?? "",
-  );
+  const [serviceKey, setServiceKey] = useState<string>(() => loadServiceKey());
   const [active, setActive] = useState<ProviderRow | null>(null);
   const [result, setResult] = useState<FetchResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const pendingRowRef = useRef<ProviderRow | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
 
   useEffect(() => {
-    localStorage.setItem(SK_STORAGE_KEY, serviceKey);
+    saveServiceKey(serviceKey);
   }, [serviceKey]);
 
   const authTag = (v: ProviderRow["authRequired"]) => {
@@ -243,19 +253,14 @@ function ProviderConfigsPage() {
     }
   };
 
-  const handleSend = async (row: ProviderRow) => {
-    if (!serviceKey) {
-      messageApi.warning(t("providers.serviceKey.missing"));
-    }
+  const fireRequest = async (row: ProviderRow, key: string) => {
     setActive(row);
     setResult(null);
     setLoading(true);
     const started = performance.now();
     try {
       const res = await fetch(row.sample, {
-        headers: serviceKey
-          ? { Authorization: `Bearer ${serviceKey}` }
-          : undefined,
+        headers: key ? { Authorization: `Bearer ${key}` } : undefined,
       });
       const text = await res.text();
       const ct = res.headers.get("content-type") ?? "";
@@ -286,13 +291,39 @@ function ProviderConfigsPage() {
     }
   };
 
-  const copyText = async (text: string, toast: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      messageApi.success(toast);
-    } catch {
-      messageApi.error("Clipboard not available");
+  const handleSend = (row: ProviderRow) => {
+    if (!serviceKey) {
+      pendingRowRef.current = row;
+      setPromptOpen(true);
+      return;
     }
+    void fireRequest(row, serviceKey);
+  };
+
+  const handlePromptSubmit = (key: string) => {
+    setServiceKey(key);
+    setPromptOpen(false);
+    const row = pendingRowRef.current;
+    pendingRowRef.current = null;
+    if (row) {
+      void fireRequest(row, key);
+    }
+  };
+
+  const handlePromptCancel = () => {
+    pendingRowRef.current = null;
+    setPromptOpen(false);
+  };
+
+  const handleClearKey = () => {
+    clearServiceKey();
+    setServiceKey("");
+    messageApi.success(t("providers.serviceKey.cleared"));
+  };
+
+  const handleCloseResponse = () => {
+    setActive(null);
+    setResult(null);
   };
 
   const columns = [
@@ -388,6 +419,9 @@ function ProviderConfigsPage() {
           onChange={(e) => setServiceKey(e.target.value)}
           allowClear
         />
+        <Button onClick={handleClearKey} disabled={!serviceKey}>
+          {t("providers.serviceKey.clear")}
+        </Button>
       </Space.Compact>
       <Table
         dataSource={PROVIDERS}
@@ -396,102 +430,21 @@ function ProviderConfigsPage() {
         size="small"
         scroll={{ x: 960 }}
       />
-      <Modal
-        title={
-          active
-            ? t("providers.test.modalTitle", { provider: active.provider })
-            : ""
-        }
-        open={active !== null}
-        onCancel={() => {
-          setActive(null);
-          setResult(null);
-        }}
-        width={800}
-        footer={[
-          <Button
-            key="copy"
-            disabled={!result || loading}
-            onClick={() => {
-              if (result) {
-                copyText(
-                  result.body || result.error || "",
-                  t("providers.test.copiedResponse"),
-                );
-              }
-            }}
-          >
-            {t("providers.test.copyResponse")}
-          </Button>,
-          <Button
-            key="close"
-            type="primary"
-            onClick={() => {
-              setActive(null);
-              setResult(null);
-            }}
-          >
-            {t("common.close")}
-          </Button>,
-        ]}
-      >
-        {active && (
-          <div>
-            <Paragraph>
-              <Text code>GET {active.sample}</Text>
-            </Paragraph>
-            {loading && <div>{t("providers.test.sending")}</div>}
-            {result && (
-              <div>
-                <Paragraph>
-                  <Space size="large">
-                    <span>
-                      <Text strong>{t("providers.test.status")}:</Text>{" "}
-                      <Tag
-                        color={
-                          result.status >= 200 && result.status < 300
-                            ? "green"
-                            : result.status === 0
-                              ? "default"
-                              : "red"
-                        }
-                      >
-                        {result.status === 0
-                          ? t("providers.test.networkError")
-                          : result.status}
-                      </Tag>
-                    </span>
-                    <span>
-                      <Text strong>{t("providers.test.duration")}:</Text>{" "}
-                      {result.duration} ms
-                    </span>
-                    {result.contentType && (
-                      <span>
-                        <Text strong>{t("providers.test.contentType")}:</Text>{" "}
-                        <Text code>{result.contentType}</Text>
-                      </span>
-                    )}
-                  </Space>
-                </Paragraph>
-                <Text strong>{t("providers.test.body")}:</Text>
-                <pre
-                  style={{
-                    background: "#f5f5f5",
-                    padding: 12,
-                    borderRadius: 4,
-                    maxHeight: 400,
-                    overflow: "auto",
-                    fontSize: 12,
-                    marginTop: 8,
-                  }}
-                >
-                  {result.error ?? result.body}
-                </pre>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
+      <Suspense fallback={<Spin />}>
+        <ServiceKeyPromptModal
+          open={promptOpen}
+          onSubmit={handlePromptSubmit}
+          onCancel={handlePromptCancel}
+        />
+        <ProviderResponseModal
+          open={active !== null}
+          provider={active?.provider}
+          sample={active?.sample}
+          loading={loading}
+          result={result}
+          onClose={handleCloseResponse}
+        />
+      </Suspense>
     </div>
   );
 }
