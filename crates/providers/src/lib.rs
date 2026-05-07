@@ -5,6 +5,7 @@ pub mod common;
 pub mod deezer;
 pub mod douban;
 pub mod fanart;
+pub mod holiday;
 pub mod lrclib;
 pub mod musicbrainz;
 pub mod nominatim;

@@ -58,6 +58,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250101_000031_create_nominatim_geocode::Migration),
             Box::new(m20250101_000022_create_qidian::Migration),
             Box::new(m20250101_000023_create_wikipedia::Migration),
+            Box::new(m20250101_000032_create_holiday_years::Migration),
         ]
     }
 }

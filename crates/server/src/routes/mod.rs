@@ -96,6 +96,10 @@ pub fn api_routes(state: AppState) -> Router {
             "/wikipedia",
             wikipedia::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
+        .nest(
+            "/holiday",
+            holiday::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
         .with_state(state)
 }
 
