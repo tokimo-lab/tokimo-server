@@ -7,7 +7,6 @@ import {
   Table,
   Tag,
   Tooltip,
-  Typography,
   message,
 } from "antd";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
@@ -24,8 +23,6 @@ const ServiceKeyPromptModal = lazy(
 const ProviderResponseModal = lazy(
   () => import("../components/ProviderResponseModal"),
 );
-
-const { Title, Paragraph, Text } = Typography;
 
 interface ProviderRow {
   key: string;
@@ -338,6 +335,7 @@ function ProviderConfigsPage() {
       dataIndex: "provider",
       key: "provider",
       width: 180,
+      render: (v: string) => <span className="font-medium">{v}</span>,
     },
     {
       title: t("providers.columns2.sampleUrl"),
@@ -346,19 +344,9 @@ function ProviderConfigsPage() {
       ellipsis: { showTitle: false },
       render: (v: string) => (
         <Tooltip title={v} placement="topLeft">
-          <Text
-            code
-            copyable={{
-              text: v,
-              tooltips: false,
-              onCopy: () =>
-                messageApi.success(t("providers.serviceKey.copied")),
-            }}
-            className="tks-admin-sample-url"
-            ellipsis
-          >
+          <code className="min-w-0 break-all text-xs text-fg-muted-light dark:text-fg-muted-dark">
             {v}
-          </Text>
+          </code>
         </Tooltip>
       ),
     },
@@ -382,11 +370,13 @@ function ProviderConfigsPage() {
       width: 220,
       render: (vars: string[]) =>
         vars.length === 0 ? (
-          <span className="tks-admin-muted">—</span>
+          <span className="text-fg-muted-light dark:text-fg-muted-dark">—</span>
         ) : (
           <Space size={[4, 4]} wrap>
             {vars.map((v) => (
-              <Tag key={v}>{v}</Tag>
+              <Tag key={v} className="text-xs">
+                {v}
+              </Tag>
             ))}
           </Space>
         ),
@@ -404,20 +394,23 @@ function ProviderConfigsPage() {
   ];
 
   return (
-    <div>
+    <div className="space-y-6">
       {contextHolder}
-      <Title level={3}>{t("providers.title")}</Title>
-      <Paragraph type="secondary">
-        {t("providers.description", { count: PROVIDERS.length })}
-      </Paragraph>
+      <div>
+        <h1 className="mb-1 text-2xl font-semibold text-fg-light dark:text-fg-dark">
+          {t("providers.title")}
+        </h1>
+        <p className="mb-6 text-sm text-fg-muted-light dark:text-fg-muted-dark">
+          {t("providers.description", { count: PROVIDERS.length })}
+        </p>
+      </div>
       <Alert
         type="info"
         showIcon
-        className="tks-admin-section-gap"
         message={t("providers.readOnlyTitle")}
         description={t("providers.readOnlyDescription")}
       />
-      <Space.Compact className="tks-admin-full-width-section-gap">
+      <Space.Compact className="w-full">
         <Input
           addonBefore={t("providers.serviceKey.label")}
           placeholder={t("providers.serviceKey.placeholder")}
@@ -433,8 +426,8 @@ function ProviderConfigsPage() {
         dataSource={PROVIDERS}
         columns={columns}
         pagination={false}
-        size="small"
         scroll={{ x: 960 }}
+        className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark [&_.ant-table-tbody>tr>td]:py-3"
       />
       <Suspense fallback={<Spin />}>
         <ServiceKeyPromptModal

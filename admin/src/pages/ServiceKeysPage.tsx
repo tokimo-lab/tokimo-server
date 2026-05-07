@@ -97,8 +97,8 @@ function ServiceKeysPage() {
   ];
 
   return (
-    <div>
-      <div className="tks-admin-section-gap">
+    <div className="space-y-6">
+      <div className="mb-4">
         <Button type="primary" onClick={() => setModalVisible(true)}>
           {t("serviceKeys.createBtn")}
         </Button>
@@ -108,6 +108,7 @@ function ServiceKeysPage() {
         columns={columns}
         loading={loading}
         rowKey="id"
+        className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark [&_.ant-table-tbody>tr>td]:py-3"
       />
 
       <Modal
@@ -120,16 +121,21 @@ function ServiceKeysPage() {
         footer={null}
       >
         {createdToken ? (
-          <div>
+          <div className="space-y-4">
             <p>{t("serviceKeys.tokenCreatedHint")}</p>
-            <Input.TextArea value={createdToken} rows={3} readOnly />
+            <Input.TextArea
+              value={createdToken}
+              rows={3}
+              readOnly
+              className="min-w-0 break-all font-mono text-xs"
+            />
             <Button
               type="primary"
               onClick={() => {
                 setModalVisible(false);
                 setCreatedToken(null);
               }}
-              className="tks-admin-modal-action"
+              block
             >
               {t("common.close")}
             </Button>
@@ -143,7 +149,7 @@ function ServiceKeysPage() {
             >
               <Input />
             </Form.Item>
-            <Form.Item>
+            <Form.Item className="mb-0">
               <Space>
                 <Button type="primary" htmlType="submit">
                   {t("common.create")}

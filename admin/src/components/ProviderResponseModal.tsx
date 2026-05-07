@@ -1,7 +1,5 @@
-import { Button, Modal, Space, Tag, Typography, message } from "antd";
+import { Button, Modal, Tag, message } from "antd";
 import { useTranslation } from "react-i18next";
-
-const { Paragraph, Text } = Typography;
 
 export interface FetchResult {
   status: number;
@@ -46,7 +44,7 @@ function ProviderResponseModal({
       title={provider ? t("providers.test.modalTitle", { provider }) : ""}
       open={open}
       onCancel={onClose}
-      width={800}
+      width={880}
       destroyOnClose
       footer={[
         <Button key="copy" disabled={!result || loading} onClick={handleCopy}>
@@ -58,18 +56,26 @@ function ProviderResponseModal({
       ]}
     >
       {contextHolder}
-      {sample && (
-        <Paragraph>
-          <Text code>GET {sample}</Text>
-        </Paragraph>
-      )}
-      {loading && <div>{t("providers.test.sending")}</div>}
-      {result && (
-        <div>
-          <Paragraph>
-            <Space size="large">
-              <span>
-                <Text strong>{t("providers.test.status")}:</Text>{" "}
+      <div className="min-w-0 space-y-4">
+        {sample && (
+          <div>
+            <code className="break-all text-xs text-fg-muted-light dark:text-fg-muted-dark">
+              GET {sample}
+            </code>
+          </div>
+        )}
+        {loading && (
+          <div className="py-12 text-center text-fg-muted-light dark:text-fg-muted-dark">
+            {t("providers.test.sending")}
+          </div>
+        )}
+        {result && (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="flex items-center gap-2">
+                <span className="text-sm font-medium">
+                  {t("providers.test.status")}:
+                </span>
                 <Tag
                   color={
                     result.status >= 200 && result.status < 300
@@ -84,24 +90,34 @@ function ProviderResponseModal({
                     : result.status}
                 </Tag>
               </span>
-              <span>
-                <Text strong>{t("providers.test.duration")}:</Text>{" "}
+              <span className="text-sm">
+                <span className="font-medium">
+                  {t("providers.test.duration")}:
+                </span>{" "}
                 {result.duration} ms
               </span>
               {result.contentType && (
-                <span>
-                  <Text strong>{t("providers.test.contentType")}:</Text>{" "}
-                  <Text code>{result.contentType}</Text>
+                <span className="min-w-0 text-sm">
+                  <span className="font-medium">
+                    {t("providers.test.contentType")}:
+                  </span>{" "}
+                  <code className="break-all text-xs">
+                    {result.contentType}
+                  </code>
                 </span>
               )}
-            </Space>
-          </Paragraph>
-          <Text strong>{t("providers.test.body")}:</Text>
-          <pre className="tks-provider-response-body">
-            {result.error ?? result.body}
-          </pre>
-        </div>
-      )}
+            </div>
+            <div>
+              <div className="mb-2 text-sm font-medium">
+                {t("providers.test.body")}:
+              </div>
+              <pre className="max-h-96 min-w-0 overflow-auto whitespace-pre-wrap break-all rounded-md bg-fill-tertiary-light p-3 text-xs dark:bg-fill-tertiary-dark">
+                {result.error ?? result.body}
+              </pre>
+            </div>
+          </div>
+        )}
+      </div>
     </Modal>
   );
 }

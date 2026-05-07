@@ -22,6 +22,8 @@
   --color-fg-dark:     #ededed;
   --color-fg-muted-light: #5e5e66;
   --color-fg-muted-dark:  #9a9aa3;
+  --color-fill-tertiary-light: #f4f4f5;
+  --color-fill-tertiary-dark: #18181c;
   --radius-card: 8px;
   --radius-input: 6px;
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;

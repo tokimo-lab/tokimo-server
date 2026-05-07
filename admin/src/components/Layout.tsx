@@ -56,9 +56,9 @@ function Layout() {
   const currentLang = i18n.language?.startsWith("zh") ? "zh" : "en";
 
   return (
-    <AntLayout className="min-h-screen bg-bg-light dark:bg-bg-dark">
+    <AntLayout className="flex min-h-screen w-full bg-bg-light dark:bg-bg-dark">
       <Sider
-        className="border-r border-border-light bg-white dark:border-border-dark dark:bg-[#111114] [&_.ant-layout-sider-children]:flex [&_.ant-layout-sider-children]:flex-col [&_.ant-layout-sider-trigger]:!border-t [&_.ant-layout-sider-trigger]:!border-border-light [&_.ant-layout-sider-trigger]:!bg-white [&_.ant-layout-sider-trigger]:!text-fg-muted-light dark:[&_.ant-layout-sider-trigger]:!border-border-dark dark:[&_.ant-layout-sider-trigger]:!bg-[#111114] dark:[&_.ant-layout-sider-trigger]:!text-fg-muted-dark"
+        className="min-h-full border-r border-border-light bg-white dark:border-border-dark dark:bg-[#111114] [&_.ant-layout-sider-children]:flex [&_.ant-layout-sider-children]:flex-col [&_.ant-layout-sider-trigger]:!border-t [&_.ant-layout-sider-trigger]:!border-border-light [&_.ant-layout-sider-trigger]:!bg-white [&_.ant-layout-sider-trigger]:!text-fg-muted-light dark:[&_.ant-layout-sider-trigger]:!border-border-dark dark:[&_.ant-layout-sider-trigger]:!bg-[#111114] dark:[&_.ant-layout-sider-trigger]:!text-fg-muted-dark"
         collapsible
         collapsed={collapsed}
         collapsedWidth={56}

@@ -1,7 +1,5 @@
-import { Alert, List, Tag, Typography } from "antd";
+import { Alert, List, Tag } from "antd";
 import { useTranslation } from "react-i18next";
-
-const { Title, Paragraph } = Typography;
 
 const CACHE_TABLES: Array<{ table: string; provider: string }> = [
   { table: "tmdb_movies", provider: "TMDB" },
@@ -31,36 +29,55 @@ function CacheInspectorPage() {
   const { t } = useTranslation();
 
   return (
-    <div>
-      <Title level={3}>{t("cache.title")}</Title>
+    <div className="space-y-6">
+      <div>
+        <h1 className="mb-1 text-2xl font-semibold text-fg-light dark:text-fg-dark">
+          {t("cache.title")}
+        </h1>
+        <p className="text-sm text-fg-muted-light dark:text-fg-muted-dark">
+          {t("cache.tablesIntro")}
+        </p>
+      </div>
       <Alert
         type="warning"
         showIcon
-        className="tks-admin-section-gap"
         message={t("cache.comingSoonTitle")}
         description={
-          <>
-            {t("cache.comingSoonDescriptionPrefix")}
-            <code>/api/admin/cache</code>
-            {t("cache.comingSoonDescriptionMiddle")}
-            <code>GET /api/admin/cache/:table?limit=50</code>
-            {t("cache.comingSoonDescriptionAnd")}
-            <code>POST /api/admin/cache/:table/:id/invalidate</code>
-            {t("cache.comingSoonDescriptionSuffix")}
-            <code>id · fetched_at · size_estimate</code>
-            {t("cache.comingSoonDescriptionTail")}
-          </>
+          <div className="space-y-2">
+            <div>
+              {t("cache.comingSoonDescriptionPrefix")}
+              <code className="mx-1 rounded bg-fill-tertiary-light px-1.5 py-0.5 text-xs dark:bg-fill-tertiary-dark">
+                /api/admin/cache
+              </code>
+              {t("cache.comingSoonDescriptionMiddle")}
+            </div>
+            <div className="space-y-1">
+              <code className="block break-all rounded bg-fill-tertiary-light px-2 py-1 text-xs dark:bg-fill-tertiary-dark">
+                GET /api/admin/cache/:table?limit=50
+              </code>
+              {t("cache.comingSoonDescriptionAnd")}
+              <code className="block break-all rounded bg-fill-tertiary-light px-2 py-1 text-xs dark:bg-fill-tertiary-dark">
+                POST /api/admin/cache/:table/:id/invalidate
+              </code>
+            </div>
+            <div>
+              {t("cache.comingSoonDescriptionSuffix")}
+              <code className="mx-1 rounded bg-fill-tertiary-light px-1.5 py-0.5 text-xs dark:bg-fill-tertiary-dark">
+                id · fetched_at · size_estimate
+              </code>
+              {t("cache.comingSoonDescriptionTail")}
+            </div>
+          </div>
         }
       />
-      <Paragraph>{t("cache.tablesIntro")}</Paragraph>
       <List
-        size="small"
         bordered
         dataSource={CACHE_TABLES}
+        className="rounded-md [&_.ant-list-item]:py-3 [&_.ant-list-item]:transition-colors [&_.ant-list-item:hover]:bg-fill-tertiary-light dark:[&_.ant-list-item:hover]:bg-fill-tertiary-dark"
         renderItem={(item) => (
-          <List.Item>
-            <code>{item.table}</code>
-            <Tag className="tks-admin-inline-gap-left">{item.provider}</Tag>
+          <List.Item className="flex items-center justify-between">
+            <code className="font-mono text-sm font-medium">{item.table}</code>
+            <Tag>{item.provider}</Tag>
           </List.Item>
         )}
       />
