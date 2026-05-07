@@ -5,6 +5,25 @@ layer. Each module wraps a single upstream (TMDB, OMDb, TheTVDB, Bangumi,
 Fanart.tv, Douban, …) and exposes pure async functions returning
 `CoreResult<T>`; persistence and rate-limiting live in the server crate.
 
+## Migrated providers (Phase 1–5)
+
+20 adapters currently live under `src/`:
+
+- **Video metadata**: `tmdb` (movie/tv/season/episode/person/image), `omdb`,
+  `thetvdb`, `bangumi`, `fanart`, `douban`
+- **Music**: `spotify`, `musicbrainz`, `deezer`, `lrclib`
+- **Books**: `qidian`
+- **Encyclopedia**: `wikipedia`
+- **Geo / weather**: `open_meteo`, `nominatim`, `geocoding` (composite over
+  Nominatim + Open-Meteo)
+- **Holidays**: `holiday` (Timor + Nager merged)
+- **Subtitles**: `assrt`
+- **Releases**: `github_releases`
+- **Trending (pre-existing)**: `baidu_hot`, `baidu_sports`
+
+See the root [`README.md`](../../README.md) for endpoints, rate limits, and
+required env vars per provider.
+
 ## Source: Copy + Adapt from `tokimo-lab/tokimo`
 
 The original provider clients live in the **private** monorepo at:
