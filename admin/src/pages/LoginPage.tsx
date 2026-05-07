@@ -24,46 +24,42 @@ function LoginPage() {
   };
 
   return (
-    <div className="tks-login-page">
-      <section className="tks-login-hero" aria-label="Tokimo Server">
-        <svg
+    <div className="grid min-h-screen grid-cols-1 bg-bg-light dark:bg-bg-dark md:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]">
+      <section
+        className="relative flex min-h-[38vh] flex-1 items-center justify-center overflow-hidden px-6 py-10 md:min-h-screen md:p-10"
+        aria-label="Tokimo Server"
+      >
+        <div
+          className="gradient-bg absolute top-[14%] right-[8%] h-[360px] w-[360px] rounded-full opacity-20 blur-3xl"
           aria-hidden="true"
-          className="tks-login-blob"
-          viewBox="0 0 360 360"
-        >
-          <defs>
-            <linearGradient
-              id="loginHeroGradient"
-              x1="44"
-              x2="316"
-              y1="40"
-              y2="320"
-            >
-              <stop offset="0" stopColor="#3b82f6" stopOpacity="0.12" />
-              <stop offset="0.5" stopColor="#8b5cf6" stopOpacity="0.14" />
-              <stop offset="1" stopColor="#ec4899" stopOpacity="0.12" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M270 55c48 36 65 109 37 163-28 55-101 90-166 80-64-10-119-66-119-127C22 109 77 41 140 25c63-17 82-6 130 30Z"
-            fill="url(#loginHeroGradient)"
-          />
-        </svg>
-        <div className="tks-login-hero-content">
-          <h1 className="tks-login-wordmark">
+        />
+        <div className="relative z-10 max-w-xl">
+          <h1 className="m-0 text-[clamp(40px,7vw,88px)] leading-[0.95] font-bold tracking-[-0.06em]">
             <span className="gradient-text">Tokimo</span>
-            <span className="tks-login-wordmark-server">Server</span>
+            <span className="block text-fg-light dark:text-fg-dark">
+              Server
+            </span>
           </h1>
-          <p className="tks-login-tagline">
+          <p className="mt-5 max-w-md text-base leading-7 text-fg-muted-light dark:text-fg-muted-dark">
             Minimal admin controls for keys, providers, cache, and service
             health.
           </p>
         </div>
       </section>
-      <section className="tks-login-panel" aria-label={t("login.cardTitle")}>
-        <Card className="tks-login-card">
-          <h2 className="tks-login-title">{t("login.cardTitle")}</h2>
-          <p className="tks-login-subtitle">tokimo-server admin console</p>
+      <section
+        className="flex items-center justify-center px-6 pb-8 md:border-l md:border-border-light md:p-8 dark:md:border-border-dark"
+        aria-label={t("login.cardTitle")}
+      >
+        <Card
+          className="w-full max-w-sm rounded-card border border-border-light bg-panel-light shadow-sm dark:border-border-dark dark:bg-panel-dark"
+          classNames={{ body: "p-8" }}
+        >
+          <h2 className="m-0 text-2xl font-semibold tracking-[-0.03em] text-fg-light dark:text-fg-dark">
+            {t("login.cardTitle")}
+          </h2>
+          <p className="mt-2 mb-6 text-sm text-fg-muted-light dark:text-fg-muted-dark">
+            tokimo-server admin console
+          </p>
           <Form onFinish={onFinish} layout="vertical" requiredMark={false}>
             <Form.Item
               label={t("login.bootstrapKeyLabel")}
@@ -77,7 +73,7 @@ function LoginPage() {
             <Form.Item>
               <Button
                 block
-                className="tks-primary-button gradient-border-on-hover"
+                className="gradient-ring-hover transition-all"
                 htmlType="submit"
                 loading={loading}
                 type="primary"

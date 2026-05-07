@@ -66,41 +66,25 @@ function ConstructionPage({ pageName }: ConstructionPageProps) {
   return (
     <section
       aria-label={`${pageName} construction status`}
-      className="tks-construction-page"
+      className="flex min-h-[calc(100vh-160px)] items-center justify-center"
     >
-      <article className="tks-construction-card">
-        <svg
+      <article className="relative w-full max-w-md overflow-hidden rounded-lg border border-border-light bg-panel-light p-6 dark:border-border-dark dark:bg-panel-dark">
+        <div
+          className="gradient-bg mx-auto mb-5 h-[120px] w-full rounded-full opacity-30 blur-xl"
           aria-hidden="true"
-          className="tks-construction-illustration"
-          viewBox="0 0 360 120"
+        />
+        <h1 className="m-0 text-center text-2xl leading-tight font-normal tracking-[-0.03em] text-fg-light dark:text-fg-dark">
+          {pageName} is warming up
+        </h1>
+        <p
+          className="mt-3 mb-5 min-h-6 text-center text-[13px] leading-7 text-fg-muted-light dark:text-fg-muted-dark"
+          aria-live="polite"
         >
-          <defs>
-            <linearGradient
-              id="constructionGradient"
-              x1="30"
-              x2="330"
-              y1="0"
-              y2="120"
-            >
-              <stop offset="0" stopColor="#3b82f6" stopOpacity="0.18" />
-              <stop offset="0.5" stopColor="#8b5cf6" stopOpacity="0.18" />
-              <stop offset="1" stopColor="#ec4899" stopOpacity="0.18" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M72 78c-20-20-7-55 21-57 18-2 28 8 38 20 12-24 42-35 69-21 19 10 27 27 25 45 20-9 43 4 45 26 2 19-12 29-31 29H106c-14 0-25-3-34-13-9-9-8-21 0-29Z"
-            fill="url(#constructionGradient)"
-          />
-          <circle cx="126" cy="60" fill="#8b5cf6" opacity="0.2" r="16" />
-          <circle cx="222" cy="46" fill="#ec4899" opacity="0.16" r="22" />
-        </svg>
-        <h1 className="tks-construction-title">{pageName} is warming up</h1>
-        <p className="tks-construction-subtitle" aria-live="polite">
           {typedLine}
-          <span className="tks-cursor">_</span>
+          <span className="animate-pulse">_</span>
         </p>
         <pre
-          className="tks-construction-comments"
+          className="m-0 grid gap-2 rounded-input border border-border-light bg-bg-light p-4 font-mono text-xs leading-relaxed text-fg-muted-light dark:border-border-dark dark:bg-bg-dark dark:text-fg-muted-dark"
           aria-label="developer comments"
         >
           {comments.map((comment) => (

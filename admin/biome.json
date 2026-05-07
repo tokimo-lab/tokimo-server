@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": ["node_modules", "dist", ".vite"]
+    "ignore": ["node_modules", "dist", ".vite", "src/styles/index.css"]
   },
   "formatter": {
     "enabled": true,

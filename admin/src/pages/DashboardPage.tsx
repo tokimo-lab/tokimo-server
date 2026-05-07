@@ -19,7 +19,7 @@ import {
   type TableProps,
   Typography,
 } from "antd";
-import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   type DashboardRecentError,
@@ -29,7 +29,6 @@ import {
   getDashboardTimeseries,
 } from "../api/client";
 import { useAdminTheme } from "../theme";
-import "./DashboardPage.css";
 
 const Line = lazy(() =>
   import("@ant-design/plots").then((module) => ({ default: module.Line })),
@@ -46,32 +45,55 @@ const RANGE_BUCKET: Record<string, string> = {
   "24h": "1h",
   "7d": "1d",
 };
-const CHART_COLORS = ["#8b5cf6", "#a78bfa", "#7c3aed"];
-const CHART_GRADIENT = "l(0) 0:#3b82f6 0.5:#8b5cf6 1:#ec4899";
+const LINE_GRADIENT = "l(0) 0:#3b82f6 0.5:#8b5cf6 1:#ec4899";
+const PIE_COLORS = [
+  "#8b5cf6",
+  "#3b82f6",
+  "#ec4899",
+  "#06b6d4",
+  "#10b981",
+  "#f59e0b",
+];
 const RANGE_OPTIONS = [
   { labelKey: "dashboard.range.1h", value: "1h" },
   { labelKey: "dashboard.range.24h", value: "24h" },
   { labelKey: "dashboard.range.7d", value: "7d" },
 ] as const;
 
-type ChartTokenColors = {
+const tableWrapperClass =
+  "overflow-hidden rounded-lg border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark [&_.ant-table]:!bg-transparent [&_.ant-table-cell]:!border-border-light dark:[&_.ant-table-cell]:!border-border-dark [&_.ant-table-thead>tr>th]:!bg-panel-light dark:[&_.ant-table-thead>tr>th]:!bg-panel-dark [&_.ant-table-thead>tr>th]:!text-fg-muted-light dark:[&_.ant-table-thead>tr>th]:!text-fg-muted-dark [&_.ant-table-tbody>tr:hover>td]:!bg-zinc-100 dark:[&_.ant-table-tbody>tr:hover>td]:!bg-[#18181c]";
+const cardClass =
+  "rounded-lg border border-border-light bg-panel-light shadow-none transition-shadow hover:shadow-sm dark:border-border-dark dark:bg-panel-dark";
+const chartBodyClass = "min-h-[320px]";
+const shortChartClass = "min-h-[260px]";
+
+type ChartPalette = {
   axis: string;
   border: string;
   text: string;
-};
-const INITIAL_CHART_TOKEN_COLORS: ChartTokenColors = {
-  axis: "",
-  border: "",
-  text: "",
+  muted: string;
 };
 
-function getChartTokenColors(): ChartTokenColors {
-  const styles = getComputedStyle(document.documentElement);
-  return {
-    axis: styles.getPropertyValue("--tks-fg-muted").trim(),
-    border: styles.getPropertyValue("--tks-border").trim(),
-    text: styles.getPropertyValue("--tks-fg").trim(),
-  };
+type PieDatum = {
+  provider: string;
+  calls: number;
+  percent?: number;
+};
+
+function getChartPalette(resolvedMode: "light" | "dark"): ChartPalette {
+  return resolvedMode === "dark"
+    ? {
+        axis: "#9a9aa3",
+        border: "#1f1f23",
+        muted: "#9a9aa3",
+        text: "#ededed",
+      }
+    : {
+        axis: "#5e5e66",
+        border: "#e5e5e7",
+        muted: "#5e5e66",
+        text: "#1a1a1a",
+      };
 }
 
 function toDate(ts: number) {
@@ -135,9 +157,9 @@ function EmptyDashboard() {
   const { t } = useTranslation();
 
   return (
-    <div className="tks-dashboard-empty">
-      <div className="tks-dashboard-empty-blob" />
-      <Typography.Text className="tks-dashboard-empty-text">
+    <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 text-center">
+      <div className="gradient-bg h-12 w-[72px] rounded-lg opacity-20" />
+      <Typography.Text className="text-xs text-fg-muted-light dark:text-fg-muted-dark">
         {t("dashboard.empty")}
       </Typography.Text>
     </div>
@@ -148,23 +170,8 @@ function DashboardPage() {
   const { t } = useTranslation();
   const { resolvedMode } = useAdminTheme();
   const [range, setRange] = useState("24h");
-  const [chartTokens, setChartTokens] = useState(INITIAL_CHART_TOKEN_COLORS);
-
-  useEffect(() => {
-    let frameId = 0;
-
-    const updateChartTokens = () => {
-      if (resolvedMode === "dark" || resolvedMode === "light") {
-        setChartTokens(getChartTokenColors());
-      }
-    };
-
-    frameId = window.requestAnimationFrame(updateChartTokens);
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [resolvedMode]);
-
-  const chartKey = `${resolvedMode}-${chartTokens.axis}-${chartTokens.border}-${chartTokens.text}`;
+  const chartPalette = getChartPalette(resolvedMode);
+  const chartKey = `${resolvedMode}-${chartPalette.axis}-${chartPalette.border}`;
   const bucket = RANGE_BUCKET[range];
 
   const overviewQuery = useQuery({
@@ -189,26 +196,43 @@ function DashboardPage() {
     ? overview.errors_24h / overview.calls_24h
     : 0;
 
+  const lineMetricLabels = useMemo(
+    () => ({
+      calls: t("dashboard.charts.calls"),
+      errors: t("dashboard.charts.errors"),
+      hits: t("dashboard.charts.cacheHits"),
+      misses: t("dashboard.charts.cacheMisses", {
+        defaultValue: "Cache misses",
+      }),
+    }),
+    [t],
+  );
+
   const lineData = useMemo(
     () =>
       (timeseriesQuery.data ?? []).flatMap((point) => [
         {
-          metric: t("dashboard.charts.calls"),
+          metric: lineMetricLabels.calls,
           time: formatTime(point.ts),
           value: point.calls,
         },
         {
-          metric: t("dashboard.charts.errors"),
+          metric: lineMetricLabels.errors,
           time: formatTime(point.ts),
           value: point.errors,
         },
         {
-          metric: t("dashboard.charts.cacheHits"),
+          metric: lineMetricLabels.hits,
           time: formatTime(point.ts),
           value: point.hits,
         },
+        {
+          metric: lineMetricLabels.misses,
+          time: formatTime(point.ts),
+          value: point.misses,
+        },
       ]),
-    [timeseriesQuery.data, t],
+    [lineMetricLabels, timeseriesQuery.data],
   );
 
   const sortedProviders = useMemo(
@@ -233,43 +257,72 @@ function DashboardPage() {
 
   const lineConfig = {
     axis: {
-      x: { labelFill: chartTokens.axis, lineStroke: chartTokens.border },
-      y: { gridStroke: chartTokens.border, labelFill: chartTokens.axis },
+      x: { labelFill: chartPalette.axis, lineStroke: chartPalette.border },
+      y: { gridStroke: chartPalette.border, labelFill: chartPalette.axis },
     },
+    background: "transparent",
     colorField: "metric",
     data: lineData,
     height: 300,
-    legend: { color: { itemLabelFill: chartTokens.text } },
-    scale: { color: { range: CHART_COLORS } },
-    style: { lineWidth: 2, stroke: CHART_GRADIENT },
-    theme: { colors: ["#8b5cf6"] },
+    legend: { color: { itemLabelFill: chartPalette.text } },
+    point: { size: 0 },
+    scale: {
+      color: {
+        domain: [
+          lineMetricLabels.calls,
+          lineMetricLabels.errors,
+          lineMetricLabels.hits,
+          lineMetricLabels.misses,
+        ],
+        range: [LINE_GRADIENT, "#f43f5e", "#10b981", "#9a9aa3"],
+      },
+    },
     seriesField: "metric",
+    style: { lineWidth: 2 },
+    theme: { colors: ["#8b5cf6", "#f43f5e", "#10b981", "#9a9aa3"] },
     xField: "time",
     yField: "value",
   };
 
   const pieConfig = {
     angleField: "calls",
+    background: "transparent",
     colorField: "provider",
     data: pieData,
     height: 260,
-    label: { text: "provider", fill: chartTokens.axis },
-    legend: { color: { itemLabelFill: chartTokens.text } },
-    scale: { color: { range: CHART_COLORS } },
-    state: { active: { fill: CHART_GRADIENT } },
-    theme: { colors: ["#8b5cf6"] },
+    innerRadius: 0.5,
+    label: {
+      fill: chartPalette.muted,
+      fontSize: 12,
+      text: (datum: PieDatum) => {
+        const percent = datum.percent ?? 0;
+        return `${datum.provider} ${new Intl.NumberFormat(undefined, {
+          maximumFractionDigits: 0,
+          style: "percent",
+        }).format(percent)}`;
+      },
+    },
+    legend: { color: { itemLabelFill: chartPalette.text, position: "right" } },
+    scale: { color: { range: PIE_COLORS } },
+    state: { active: { scale: 1.04 } },
+    theme: { colors: PIE_COLORS },
   };
 
   const columnConfig = {
     axis: {
-      x: { labelFill: chartTokens.axis, lineStroke: chartTokens.border },
-      y: { gridStroke: chartTokens.border, labelFill: chartTokens.axis },
+      x: { labelFill: chartPalette.axis, lineStroke: chartPalette.border },
+      y: { gridStroke: chartPalette.border, labelFill: chartPalette.axis },
     },
-    colorField: "provider",
+    background: "transparent",
+    color: "#8b5cf6",
     data: columnData,
     height: 260,
     legend: false,
-    scale: { color: { range: CHART_COLORS } },
+    style: {
+      fill: "#8b5cf6",
+      radiusTopLeft: 4,
+      radiusTopRight: 4,
+    },
     theme: { colors: ["#8b5cf6"] },
     xField: "provider",
     yField: "calls",
@@ -285,7 +338,9 @@ function DashboardPage() {
       dataIndex: "provider",
       key: "provider",
       render: (value: DashboardRecentError["provider"]) => (
-        <span className="tks-dashboard-provider-cell">{value}</span>
+        <span className="font-semibold text-fg-light dark:text-fg-dark">
+          {value}
+        </span>
       ),
       title: t("dashboard.columns.provider"),
     },
@@ -346,8 +401,11 @@ function DashboardPage() {
   ];
 
   return (
-    <div className="tks-dashboard-page">
-      <Typography.Title level={2} className="tks-dashboard-title">
+    <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6">
+      <Typography.Title
+        level={2}
+        className="m-0 text-2xl tracking-[-0.03em] text-fg-light dark:text-fg-dark"
+      >
         {t("dashboard.title")}
       </Typography.Title>
 
@@ -357,31 +415,37 @@ function DashboardPage() {
           onRetry={() => overviewQuery.refetch()}
         />
       ) : (
-        <Row gutter={[24, 24]} className="tks-dashboard-stat-row">
+        <Row gutter={[24, 24]}>
           {statCards.map((card) => (
             <Col xs={24} sm={12} xl={6} key={card.key}>
-              <Card className="tks-dashboard-card tks-dashboard-stat-card">
+              <Card className={cardClass} classNames={{ body: "p-5" }}>
                 {overviewQuery.isLoading ? (
                   <Skeleton active paragraph={false} />
                 ) : (
-                  <>
-                    <span className="tks-dashboard-stat-icon">{card.icon}</span>
-                    <div className="tks-dashboard-stat-content">
+                  <div className="flex items-start gap-4">
+                    <span className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-input border border-border-light bg-zinc-100 text-fg-muted-light dark:border-border-dark dark:bg-[#18181c] dark:text-fg-muted-dark">
+                      {card.icon}
+                    </span>
+                    <div className="min-w-0">
                       <Statistic
                         title={
-                          <span className="tks-dashboard-stat-label">
-                            <ArrowUpOutlined className="tks-dashboard-trend-arrow" />
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold tracking-[0.08em] text-fg-muted-light uppercase dark:text-fg-muted-dark">
+                            <ArrowUpOutlined className="text-[10px] text-brand-500" />
                             {card.title}
                           </span>
                         }
                         value={card.value}
-                        formatter={(value) => formatNumber(Number(value))}
+                        formatter={(value) => (
+                          <span className="gradient-text text-[28px] leading-none font-semibold tracking-[-0.04em]">
+                            {formatNumber(Number(value))}
+                          </span>
+                        )}
                       />
-                      <div className="tks-dashboard-stat-subtitle">
+                      <div className="mt-2 text-xs text-fg-muted-light dark:text-fg-muted-dark">
                         {card.subtitle}
                       </div>
                     </div>
-                  </>
+                  </div>
                 )}
               </Card>
             </Col>
@@ -394,9 +458,14 @@ function DashboardPage() {
       <Row gutter={[24, 24]}>
         <Col xs={24} xl={16}>
           <Card
-            className="tks-dashboard-card tks-dashboard-chart-card"
+            className={cardClass}
+            classNames={{
+              body: "bg-panel-light dark:bg-panel-dark",
+              header:
+                "min-h-12 border-border-light text-sm font-semibold dark:border-border-dark",
+            }}
             title={
-              <div className="tks-dashboard-card-title">
+              <div className="flex items-center justify-between gap-3">
                 <span>{t("dashboard.charts.volume")}</span>
                 <Segmented
                   value={range}
@@ -409,7 +478,7 @@ function DashboardPage() {
               </div>
             }
           >
-            <div className="tks-dashboard-chart-body">
+            <div className={chartBodyClass}>
               {timeseriesQuery.isError ? (
                 <ErrorState
                   error={timeseriesQuery.error}
@@ -429,10 +498,15 @@ function DashboardPage() {
         </Col>
         <Col xs={24} xl={8}>
           <Card
-            className="tks-dashboard-card tks-dashboard-chart-card"
+            className={cardClass}
+            classNames={{
+              body: "bg-panel-light dark:bg-panel-dark",
+              header:
+                "min-h-12 border-border-light text-sm font-semibold dark:border-border-dark",
+            }}
             title={t("dashboard.charts.topProviders")}
           >
-            <div className="tks-dashboard-short-chart">
+            <div className={shortChartClass}>
               {providersQuery.isError ? (
                 <ErrorState
                   error={providersQuery.error}
@@ -455,10 +529,15 @@ function DashboardPage() {
       <Row gutter={[24, 24]}>
         <Col xs={24} xl={14}>
           <Card
-            className="tks-dashboard-card tks-dashboard-chart-card"
+            className={cardClass}
+            classNames={{
+              body: "bg-panel-light dark:bg-panel-dark",
+              header:
+                "min-h-12 border-border-light text-sm font-semibold dark:border-border-dark",
+            }}
             title={t("dashboard.charts.byProvider")}
           >
-            <div className="tks-dashboard-short-chart">
+            <div className={shortChartClass}>
               {providersQuery.isError ? (
                 <ErrorState
                   error={providersQuery.error}
@@ -478,26 +557,34 @@ function DashboardPage() {
         </Col>
         <Col xs={24} xl={10}>
           <Card
-            className="tks-dashboard-card tks-dashboard-chart-card"
+            className={cardClass}
+            classNames={{
+              body: "bg-panel-light dark:bg-panel-dark p-0",
+              header:
+                "min-h-12 border-border-light text-sm font-semibold dark:border-border-dark",
+            }}
             title={t("dashboard.charts.recentErrors")}
           >
             {recentErrorsQuery.isError ? (
-              <ErrorState
-                error={recentErrorsQuery.error}
-                onRetry={() => recentErrorsQuery.refetch()}
-              />
+              <div className="p-6">
+                <ErrorState
+                  error={recentErrorsQuery.error}
+                  onRetry={() => recentErrorsQuery.refetch()}
+                />
+              </div>
             ) : (
-              <Table
-                className="tks-dashboard-table"
-                columns={columns}
-                dataSource={recentErrorsQuery.data ?? []}
-                loading={recentErrorsQuery.isLoading}
-                pagination={false}
-                rowKey={(record) =>
-                  `${record.ts}-${record.provider}-${record.status}`
-                }
-                size="small"
-              />
+              <div className={tableWrapperClass}>
+                <Table
+                  columns={columns}
+                  dataSource={recentErrorsQuery.data ?? []}
+                  loading={recentErrorsQuery.isLoading}
+                  pagination={false}
+                  rowKey={(record) =>
+                    `${record.ts}-${record.provider}-${record.status}`
+                  }
+                  size="small"
+                />
+              </div>
             )}
           </Card>
         </Col>

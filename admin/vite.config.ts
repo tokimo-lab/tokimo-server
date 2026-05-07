@@ -1,8 +1,17 @@
-import { defineConfig } from "vite";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import path from "node:path";
+import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@fontsource/inter/variable.css": path.resolve(
+        "./node_modules/@fontsource/inter/index.css",
+      ),
+    },
+  },
   base: "/admin/",
   server: {
     port: 5174,

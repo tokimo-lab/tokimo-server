@@ -52,13 +52,8 @@ export function AdminThemeProvider({ children }: { children: ReactNode }) {
   const resolvedMode = mode === "system" ? systemMode : mode;
 
   useEffect(() => {
-    if (mode === "system") {
-      document.documentElement.removeAttribute("data-theme");
-      return;
-    }
-
-    document.documentElement.dataset.theme = mode;
-  }, [mode]);
+    document.documentElement.dataset.theme = resolvedMode;
+  }, [resolvedMode]);
 
   const setMode = useCallback((nextMode: AdminThemeMode) => {
     localStorage.setItem(THEME_STORAGE_KEY, nextMode);
