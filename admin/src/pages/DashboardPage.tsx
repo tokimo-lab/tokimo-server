@@ -1,5 +1,6 @@
 import {
   ApiOutlined,
+  ArrowUpOutlined,
   DatabaseOutlined,
   KeyOutlined,
   ThunderboltOutlined,
@@ -45,7 +46,8 @@ const RANGE_BUCKET: Record<string, string> = {
   "24h": "1h",
   "7d": "1d",
 };
-const CHART_COLORS = ["#FF8A3D", "#FF5CA1", "#8B5CF6"];
+const CHART_COLORS = ["#8b5cf6", "#a78bfa", "#7c3aed"];
+const CHART_GRADIENT = "l(0) 0:#3b82f6 0.5:#8b5cf6 1:#ec4899";
 const RANGE_OPTIONS = [
   { labelKey: "dashboard.range.1h", value: "1h" },
   { labelKey: "dashboard.range.24h", value: "24h" },
@@ -66,9 +68,9 @@ const INITIAL_CHART_TOKEN_COLORS: ChartTokenColors = {
 function getChartTokenColors(): ChartTokenColors {
   const styles = getComputedStyle(document.documentElement);
   return {
-    axis: styles.getPropertyValue("--tks-fg-secondary").trim(),
-    border: styles.getPropertyValue("--tks-border-subtle").trim(),
-    text: styles.getPropertyValue("--tks-fg-primary").trim(),
+    axis: styles.getPropertyValue("--tks-fg-muted").trim(),
+    border: styles.getPropertyValue("--tks-border").trim(),
+    text: styles.getPropertyValue("--tks-fg").trim(),
   };
 }
 
@@ -144,7 +146,7 @@ function EmptyDashboard() {
 
 function DashboardPage() {
   const { t } = useTranslation();
-  const { mode } = useAdminTheme();
+  const { resolvedMode } = useAdminTheme();
   const [range, setRange] = useState("24h");
   const [chartTokens, setChartTokens] = useState(INITIAL_CHART_TOKEN_COLORS);
 
@@ -152,20 +154,17 @@ function DashboardPage() {
     let frameId = 0;
 
     const updateChartTokens = () => {
-      if (document.documentElement.dataset.theme !== mode) {
-        frameId = window.requestAnimationFrame(updateChartTokens);
-        return;
+      if (resolvedMode === "dark" || resolvedMode === "light") {
+        setChartTokens(getChartTokenColors());
       }
-
-      setChartTokens(getChartTokenColors());
     };
 
     frameId = window.requestAnimationFrame(updateChartTokens);
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [mode]);
+  }, [resolvedMode]);
 
-  const chartKey = `${mode}-${chartTokens.axis}-${chartTokens.border}-${chartTokens.text}`;
+  const chartKey = `${resolvedMode}-${chartTokens.axis}-${chartTokens.border}-${chartTokens.text}`;
   const bucket = RANGE_BUCKET[range];
 
   const overviewQuery = useQuery({
@@ -242,6 +241,8 @@ function DashboardPage() {
     height: 300,
     legend: { color: { itemLabelFill: chartTokens.text } },
     scale: { color: { range: CHART_COLORS } },
+    style: { lineWidth: 2, stroke: CHART_GRADIENT },
+    theme: { colors: ["#8b5cf6"] },
     seriesField: "metric",
     xField: "time",
     yField: "value",
@@ -255,6 +256,8 @@ function DashboardPage() {
     label: { text: "provider", fill: chartTokens.axis },
     legend: { color: { itemLabelFill: chartTokens.text } },
     scale: { color: { range: CHART_COLORS } },
+    state: { active: { fill: CHART_GRADIENT } },
+    theme: { colors: ["#8b5cf6"] },
   };
 
   const columnConfig = {
@@ -267,6 +270,7 @@ function DashboardPage() {
     height: 260,
     legend: false,
     scale: { color: { range: CHART_COLORS } },
+    theme: { colors: ["#8b5cf6"] },
     xField: "provider",
     yField: "calls",
   };
@@ -364,7 +368,12 @@ function DashboardPage() {
                     <span className="tks-dashboard-stat-icon">{card.icon}</span>
                     <div className="tks-dashboard-stat-content">
                       <Statistic
-                        title={card.title}
+                        title={
+                          <span className="tks-dashboard-stat-label">
+                            <ArrowUpOutlined className="tks-dashboard-trend-arrow" />
+                            {card.title}
+                          </span>
+                        }
                         value={card.value}
                         formatter={(value) => formatNumber(Number(value))}
                       />

@@ -21,52 +21,60 @@ const queryClient = new QueryClient({
 });
 
 const sharedToken: ThemeConfig["token"] = {
-  fontFamily: "Inter, -apple-system, system-ui, sans-serif",
   borderRadius: 8,
   borderRadiusLG: 10,
   borderRadiusSM: 6,
-  motionDurationMid: "0.24s",
-  motionDurationSlow: "0.32s",
-  motionEaseInOut: "cubic-bezier(0.32, 0.72, 0, 1)",
-  colorPrimary: "#FF5CA1",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+  boxShadowSecondary: "0 2px 8px rgba(0,0,0,0.06)",
+  colorPrimary: "#8b5cf6",
+  colorPrimaryActive: "#7c3aed",
+  colorPrimaryHover: "#a78bfa",
+  fontFamily:
+    "Inter, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+  fontSize: 13,
+  motionDurationFast: "0.15s",
+  motionDurationMid: "0.2s",
+  motionDurationSlow: "0.3s",
+  motionEaseInOut: "cubic-bezier(0.4, 0, 0.2, 1)",
+  motionEaseOut: "cubic-bezier(0.4, 0, 0.2, 1)",
 };
 
 const lightToken: ThemeConfig["token"] = {
-  colorBgContainer: "#FFFFFF",
-  colorBgLayout: "#F8F5F0",
-  colorBorder: "rgba(0,0,0,0.10)",
-  colorBorderSecondary: "rgba(0,0,0,0.06)",
-  colorPrimaryHover: "#FF8A3D",
-  colorText: "rgba(0,0,0,0.92)",
-  colorTextSecondary: "rgba(0,0,0,0.62)",
-  colorTextTertiary: "rgba(0,0,0,0.40)",
-  controlItemBgHover: "rgba(255, 92, 161, 0.08)",
+  colorBgBase: "#fafafa",
+  colorBgContainer: "#ffffff",
+  colorBgLayout: "#fafafa",
+  colorBorder: "#e5e5e7",
+  colorBorderSecondary: "#efefef",
+  colorText: "#1a1a1a",
+  colorTextSecondary: "#5e5e66",
+  colorTextTertiary: "#8a8a93",
+  controlItemBgHover: "#f4f4f5",
 };
 
 const darkToken: ThemeConfig["token"] = {
-  colorBgContainer: "#1F1F26",
-  colorBgLayout: "#14141A",
-  colorBorder: "rgba(255,255,255,0.10)",
-  colorBorderSecondary: "rgba(255,255,255,0.06)",
-  colorPrimaryHover: "#FF8A3D",
-  colorText: "rgba(255,255,255,0.94)",
-  colorTextSecondary: "rgba(255,255,255,0.62)",
-  colorTextTertiary: "rgba(255,255,255,0.40)",
-  controlItemBgHover: "rgba(255, 110, 173, 0.14)",
+  colorBgBase: "#08080b",
+  colorBgContainer: "#111114",
+  colorBgLayout: "#08080b",
+  colorBorder: "#1f1f23",
+  colorBorderSecondary: "#16161a",
+  colorText: "#ededed",
+  colorTextSecondary: "#9a9aa3",
+  colorTextTertiary: "#6f6f78",
+  controlItemBgHover: "#18181c",
 };
 
 function LocalizedRoot() {
   const { i18n } = useTranslation();
-  const { mode } = useAdminTheme();
+  const { resolvedMode } = useAdminTheme();
   const antdLocale = i18n.language?.startsWith("zh") ? zhCN : enUS;
-  const modeToken = mode === "dark" ? darkToken : lightToken;
+  const isDark = resolvedMode === "dark";
+  const modeToken = isDark ? darkToken : lightToken;
 
   return (
     <ConfigProvider
       locale={antdLocale}
       theme={{
-        algorithm:
-          mode === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
+        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {
           ...sharedToken,
           ...modeToken,

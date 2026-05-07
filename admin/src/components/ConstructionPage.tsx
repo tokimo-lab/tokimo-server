@@ -6,25 +6,21 @@ export interface ConstructionPageProps {
 }
 
 const TYPEWRITER_LINES = [
-  "// Building something nice...",
-  "// Brewing pixels with caffeine ☕",
-  "// 来都来了，要不再等等？",
-  "// TODO: ship it",
-  "// 这个页面正在做，真的",
-  "// const isReady = false; // for now",
+  "Building the least surprising admin page...",
+  "Polishing one border at a time...",
+  "Reticulating server splines...",
+  "TODO: replace TODO with shipped UI",
 ];
 
 const COMMENT_POOL = [
-  "// FIXME: 这里以后再说",
-  "/* @ts-expect-error 反正以后会修 */",
-  "// HACK: don't @ me",
-  "// 历史包袱 + 1",
-  "// const correct = magic ?? hope;",
-  "// throw new Error('未实现');",
-  "// 注释比代码多就是好代码",
-  "// PR welcome 🙏",
-  "// 这个 if 永远不会进来（应该）",
-  "// 经测试，能跑",
+  "// TODO: delete this TODO before someone screenshots it",
+  "// Works on my machine, which is technically production-adjacent",
+  "// If this fails, blame the cache. If not, still blame the cache",
+  "// Future me said this was fine",
+  "// This condition is impossible until Tuesday",
+  "// Optimized for vibes per second",
+  "// The compiler and I have reached an understanding",
+  "// Ship first, philosophize later",
 ];
 
 function pickComments() {
@@ -40,7 +36,7 @@ function useTypewriter(lines: string[]) {
   useEffect(() => {
     const atFullLine = visibleLength === currentLine.length;
     const atEmptyLine = visibleLength === 0;
-    const delay = atFullLine && !deleting ? 1500 : 50;
+    const delay = atFullLine && !deleting ? 1400 : 45;
 
     const timeout = window.setTimeout(() => {
       if (!deleting && atFullLine) {
@@ -63,10 +59,7 @@ function useTypewriter(lines: string[]) {
   return currentLine.slice(0, visibleLength);
 }
 
-function ConstructionPage({
-  pageName,
-  estimate = "TBD",
-}: ConstructionPageProps) {
+function ConstructionPage({ pageName }: ConstructionPageProps) {
   const comments = useMemo(pickComments, []);
   const typedLine = useTypewriter(TYPEWRITER_LINES);
 
@@ -75,65 +68,45 @@ function ConstructionPage({
       aria-label={`${pageName} construction status`}
       className="tks-construction-page"
     >
-      <article className="tks-card tks-construction-card tks-enter">
-        <div className="tks-construction-hero">
-          <div className="tks-construction-blob" aria-hidden="true">
-            🦆
-          </div>
-          <div>
-            <div className="tks-construction-kicker">Under construction</div>
-            <h1 className="tks-construction-title">{pageName} is warming up</h1>
-            <p className="tks-construction-copy">
-              This admin surface is getting the glossy bits without touching the
-              business logic.
-            </p>
-          </div>
-        </div>
-
-        <div className="tks-construction-meta">
-          <span className="tks-construction-estimate">ETA: {estimate}</span>
-        </div>
-
-        <p className="tks-construction-typewriter" aria-live="polite">
+      <article className="tks-construction-card">
+        <svg
+          aria-hidden="true"
+          className="tks-construction-illustration"
+          viewBox="0 0 360 120"
+        >
+          <defs>
+            <linearGradient
+              id="constructionGradient"
+              x1="30"
+              x2="330"
+              y1="0"
+              y2="120"
+            >
+              <stop offset="0" stopColor="#3b82f6" stopOpacity="0.18" />
+              <stop offset="0.5" stopColor="#8b5cf6" stopOpacity="0.18" />
+              <stop offset="1" stopColor="#ec4899" stopOpacity="0.18" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M72 78c-20-20-7-55 21-57 18-2 28 8 38 20 12-24 42-35 69-21 19 10 27 27 25 45 20-9 43 4 45 26 2 19-12 29-31 29H106c-14 0-25-3-34-13-9-9-8-21 0-29Z"
+            fill="url(#constructionGradient)"
+          />
+          <circle cx="126" cy="60" fill="#8b5cf6" opacity="0.2" r="16" />
+          <circle cx="222" cy="46" fill="#ec4899" opacity="0.16" r="22" />
+        </svg>
+        <h1 className="tks-construction-title">{pageName} is warming up</h1>
+        <p className="tks-construction-subtitle" aria-live="polite">
           {typedLine}
           <span className="tks-cursor">_</span>
         </p>
-
-        <div className="tks-construction-comments" aria-label="build comments">
+        <pre
+          className="tks-construction-comments"
+          aria-label="developer comments"
+        >
           {comments.map((comment) => (
-            <span className="tks-construction-comment" key={comment}>
-              {comment}
-            </span>
+            <code key={comment}>{comment}</code>
           ))}
-        </div>
-
-        <div className="tks-terminal" aria-label={`${pageName} terminal log`}>
-          <div className="tks-terminal-header" aria-hidden="true">
-            <span className="tks-traffic-light tks-traffic-light-red" />
-            <span className="tks-traffic-light tks-traffic-light-yellow" />
-            <span className="tks-traffic-light tks-traffic-light-green" />
-          </div>
-          <div className="tks-terminal-body">
-            <div className="tks-terminal-row">
-              <span className="tks-terminal-prompt">$</span>
-              npm install patience
-            </div>
-            <div className="tks-terminal-ok">
-              ✓ patience installed (1 package, 0 vulnerabilities)
-            </div>
-            <div className="tks-terminal-row">
-              <span className="tks-terminal-prompt">$</span>
-              ./ship-it
-            </div>
-            <div className="tks-terminal-error">
-              ✗ Error: ETA: when it's done
-            </div>
-            <div className="tks-terminal-row">
-              <span className="tks-terminal-prompt">$</span>
-              <span className="tks-cursor">_</span>
-            </div>
-          </div>
-        </div>
+        </pre>
       </article>
     </section>
   );

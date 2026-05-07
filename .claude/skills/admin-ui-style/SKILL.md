@@ -1,177 +1,180 @@
 ---
 name: admin-ui-style
 description: |
-  tokimo-server admin 前端 UI 风格规范（强制）。Apple HIG / iCloud Web 风：玻璃毛玻璃 + 高对比 + 多彩渐变点缀（橙→粉→紫）。涵盖色板、间距、圆角、动画、字体、组件边界、antd override、施工中组件、不要做清单、违规代码修复参考。触发词：写组件 / 改样式 / 加页面 / UI 调整 / 配色 / 动画 / 玻璃 / 主题 / 施工中。
+  Force-trigger this skill for any tokimo-server admin UI change: pages, components, layout, CSS, Ant Design theme, visual polish, empty states, dashboards, login, navigation, or style documentation. Linear is the visual ground truth: flat minimal panels, subtle 1px borders, low shadows, medium-tight density, and restrained brand accents only.
 ---
 
-## 整体语言
+# admin-ui-style
 
-admin 前端遵循 Apple HIG / iCloud Web 风：柔和纯色页面背景、清晰内容层级、必要位置使用玻璃毛玻璃、多彩暖色渐变只做点缀。后台界面优先可读性和业务效率，不做营销页式大面积渐变或强装饰。
+## Visual ground truth
 
-## 设计 token 来源
+The admin UI follows Linear-style minimal product UI, not marketing UI:
 
-唯一来源是 `admin/src/styles/tokens.css`。使用下列 token，不新增 `--tks-ambient-*`、`--tks-text-*` 或同义 alias。
+- Flat background, flat panels, 1px subtle borders.
+- Near-invisible shadows; never use heavy elevation.
+- Medium-tight density with clear hierarchy.
+- Dual theme follows `prefers-color-scheme` by default and may be explicitly set to light/dark.
+- Brand color is violet `#8b5cf6`; hover `#a78bfa`; active `#7c3aed`.
+- Brand gradient is an accent only: `linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)`.
 
-- `--tks-space-1: 8px;`
-- `--tks-space-2: 16px;`
-- `--tks-space-3: 24px;`
-- `--tks-space-4: 32px;`
-- `--tks-space-5: 48px;`
-- `--tks-space-6: 64px;`
-- `--tks-radius-sm: 6px;`
-- `--tks-radius-md: 8px;`
-- `--tks-radius-lg: 10px;`
-- `--tks-radius-xl: 14px;`
-- `--tks-ease-spring: cubic-bezier(0.32, 0.72, 0, 1);`
-- `--tks-duration-fast: 160ms;`
-- `--tks-duration-base: 240ms;`
-- `--tks-duration-slow: 320ms;`
-- `--tks-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;`
-- `--tks-font-mono: "JetBrains Mono", "SF Mono", ui-monospace, "Cascadia Mono", monospace;`
-- `--tks-gradient-warm: linear-gradient(135deg, #FF8A3D 0%, #FF5CA1 50%, #8B5CF6 100%);`
-- `--tks-gradient-warm-soft: linear-gradient(135deg, rgba(255,138,61,0.16) 0%, rgba(255,92,161,0.16) 50%, rgba(139,92,246,0.16) 100%);`
-- Light：`--tks-bg-app: #F8F5F0;`、`--tks-bg-elevated: #FFFFFF;`、`--tks-bg-glass: rgba(255, 255, 255, 0.62);`、`--tks-bg-glass-strong: rgba(255, 255, 255, 0.78);`、`--tks-border-subtle: rgba(0, 0, 0, 0.06);`、`--tks-border-base: rgba(0, 0, 0, 0.10);`、`--tks-fg-primary: rgba(0, 0, 0, 0.92);`、`--tks-fg-secondary: rgba(0, 0, 0, 0.62);`、`--tks-fg-muted: rgba(0, 0, 0, 0.40);`、`--tks-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);`、`--tks-shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.08);`
-- Dark：`--tks-bg-app: #14141A;`、`--tks-bg-elevated: #1F1F26;`、`--tks-bg-glass: rgba(28, 28, 36, 0.62);`、`--tks-bg-glass-strong: rgba(28, 28, 36, 0.78);`、`--tks-border-subtle: rgba(255, 255, 255, 0.06);`、`--tks-border-base: rgba(255, 255, 255, 0.10);`、`--tks-fg-primary: rgba(255, 255, 255, 0.94);`、`--tks-fg-secondary: rgba(255, 255, 255, 0.62);`、`--tks-fg-muted: rgba(255, 255, 255, 0.40);`、`--tks-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30), 0 8px 24px rgba(0, 0, 0, 0.40);`、`--tks-shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.50);`
+## Token source
 
-## 色板
+Use `admin/src/styles/tokens.css` as the only visual token source.
 
-页面底色使用 `--tks-bg-app`，内容卡片使用 `--tks-bg-elevated`，玻璃层使用 `--tks-bg-glass` / `--tks-bg-glass-strong`。文字只用 `--tks-fg-primary`、`--tks-fg-secondary`、`--tks-fg-muted`，边框只用 `--tks-border-subtle` / `--tks-border-base`。
+Required tokens:
 
-## 字体规则
+- Surfaces: `--tks-bg`, `--tks-panel`, `--tks-panel-hover`.
+- Borders: `--tks-border`, `--tks-border-strong`.
+- Text: `--tks-fg`, `--tks-fg-muted`, `--tks-fg-subtle`.
+- Brand: `--tks-primary`, `--tks-primary-hover`, `--tks-primary-active`, `--tks-focus-ring`.
+- Status: `--tks-success`, `--tks-warning`, `--tks-danger`.
+- Radius: `--tks-radius-sm`, `--tks-radius-md`, `--tks-radius-lg`, `--tks-radius-pill`.
+- Shadow: `--tks-shadow-sm`, `--tks-shadow-md`, `--tks-shadow-lg`.
+- Spacing: `--tks-space-1` through `--tks-space-8`.
+- Type: `--tks-text-xs`, `--tks-text-sm`, `--tks-text-base`, `--tks-text-lg`, `--tks-text-xl`, `--tks-text-2xl`, `--tks-text-3xl`.
+- Motion: `--tks-easing`, `--tks-duration-fast`, `--tks-duration`.
+- Gradient: `--tks-gradient-brand`, `--tks-gradient-brand-soft`.
 
-全局字体走 `--tks-font-sans`。代码、日志、终端、token 示例走 `--tks-font-mono`。不要在 TSX inline style 中重复写 font-family。
+Frozen values:
 
-## 间距
+| Token intent | Light | Dark |
+|---|---:|---:|
+| Background | `#fafafa` | `#08080b` |
+| Panel | `#ffffff` | `#111114` |
+| Primary | `#8b5cf6` | `#8b5cf6` |
+| Hover | `#a78bfa` | `#a78bfa` |
+| Active | `#7c3aed` | `#7c3aed` |
+| Card radius | `8px` | `8px` |
+| Button/input radius | `6px` | `6px` |
+| Pill radius | `999px` | `999px` |
 
-间距只用 `--tks-space-1` 到 `--tks-space-6`。表单小间距优先 `--tks-space-1` / `--tks-space-2`，页面级 padding 优先 `--tks-space-5` / `--tks-space-6`。
+## Gradient placement whitelist
 
-## 圆角
+The brand gradient may appear in exactly these six places:
 
-控件和标签使用 `--tks-radius-sm` / `--tks-radius-md`，主卡片使用 `--tks-radius-lg`，大容器最多使用 `--tks-radius-xl`。不要用 16px、24px 等脱离 token 的随手圆角。
+1. Logo / wordmark text or mark.
+2. Primary button hover / active border, not the default resting button fill.
+3. Stat card number via `background-clip: text`.
+4. Chart primary line or pie active slice.
+5. Empty state and login hero illustration.
+6. Sider active left indicator as a 3px strip.
 
-## 毛玻璃用法
+Anywhere else requires removing the gradient.
 
-毛玻璃用于 header、sider、浮层或轻量悬浮面板，不用于主内容卡片。标准片段：
+## Strict DO NOT list
+
+- No glassmorphism.
+- No `backdrop-filter` or `-webkit-backdrop-filter`.
+- No `rgba()` translucent panels; panels must be solid `--tks-panel`.
+- No mesh background, radial ambient background, gradient body background, or gradient large surfaces.
+- No multi-color rainbow cards, tables, panels, headers, or page backgrounds.
+- No inline `style={{}}`; use CSS classes and tokens.
+- No icon library except `@ant-design/icons`.
+- No heavy shadows; max shadow is `0 4px 12px rgba(0,0,0,0.08)` or token equivalent.
+- No animation longer than `300ms`.
+- No Ant Design default blue `colorPrimary`; it must be `#8b5cf6`.
+- No new dependencies for visual work.
+
+## Ant Design requirements
+
+`ConfigProvider` must align with tokens:
+
+- `algorithm`: `isDark ? theme.darkAlgorithm : theme.defaultAlgorithm`.
+- `colorPrimary`: `#8b5cf6`.
+- `colorPrimaryHover`: `#a78bfa`.
+- `colorPrimaryActive`: `#7c3aed`.
+- `colorBgBase`: dark `#08080b`, light `#fafafa`.
+- `colorBgContainer`: dark `#111114`, light `#ffffff`.
+- `colorBorder`: dark `#1f1f23`, light `#e5e5e7`.
+- `colorBorderSecondary`: dark `#16161a`, light `#efefef`.
+- `colorText`: dark `#ededed`, light `#1a1a1a`.
+- `colorTextSecondary`: dark `#9a9aa3`, light `#5e5e66`.
+- `fontFamily`: Inter plus system fallback.
+- `fontSize`: `13`.
+- `borderRadius`: `8`; `borderRadiusSM`: `6`; `borderRadiusLG`: `10`.
+- Motion uses `150ms` to `200ms` and `cubic-bezier(0.4, 0, 0.2, 1)`.
+
+## Before / after corrections
+
+### Glass panel to Linear panel
+
+Before:
 
 ```css
-.tks-glass {
-  background: var(--tks-bg-glass);
-  border: 1px solid var(--tks-border-subtle);
-  box-shadow: var(--tks-shadow-glass);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+.header {
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
 }
 ```
 
-## 多彩渐变
+After:
 
-`--tks-gradient-warm` 和 `--tks-gradient-warm-soft` 只用于 logo、avatar、blob、徽章等小面积点缀。body、app、登录页、主布局背景必须是 `--tks-bg-app` 这类柔和纯色，不使用 radial ambient 背景。
-
-## 动画规则
-
-动效使用 `--tks-duration-fast`、`--tks-duration-base`、`--tks-duration-slow` 和 `--tks-ease-spring`。禁止 `transition: all 0.5s`，只声明实际变化的属性。
-
-## 组件层级
-
-布局外壳使用 `--tks-bg-app`；导航、header 可叠 `.tks-glass`；业务内容用 `.tks-card`；卡片内部再分组时只加边框或间距，不继续叠加毛玻璃。
-
-## antd ConfigProvider override 模板
-
-```tsx
-const lightToken = {
-  colorBgLayout: "#F8F5F0",
-  colorBgContainer: "#FFFFFF",
-  colorBorder: "rgba(0,0,0,0.10)",
-  colorBorderSecondary: "rgba(0,0,0,0.06)",
-  colorText: "rgba(0,0,0,0.92)",
-  colorTextSecondary: "rgba(0,0,0,0.62)",
-  colorTextTertiary: "rgba(0,0,0,0.40)",
-};
-
-const darkToken = {
-  colorBgLayout: "#14141A",
-  colorBgContainer: "#1F1F26",
-  colorBorder: "rgba(255,255,255,0.10)",
-  colorBorderSecondary: "rgba(255,255,255,0.06)",
-  colorText: "rgba(255,255,255,0.94)",
-  colorTextSecondary: "rgba(255,255,255,0.62)",
-  colorTextTertiary: "rgba(255,255,255,0.40)",
-};
-```
-
-## 施工中组件
-
-未完成页面统一使用 `ConstructionPage`，传入 `pageName` 和可选 `estimate`。施工卡片宽度使用 `width: min(100%, 560px)`，可配 `min-width: min(100%, 480px)`，确保移动端不横向溢出。
-
-## i18n
-
-可见文案优先接入现有 i18n；临时施工文案可以保留组件内部固定文案，但不要把真实业务页面的新中文/英文散落在 TSX 中。
-
-## Lint
-
-样式或前端改动后运行 admin 现有 lint/typecheck 命令。若只做 token 文档更新，至少跑 targeted grep 检查违规 token、旧 rgba、硬编码白色 avatar。
-
-## 不要做（DON'T LIST）
-
-- 不要新增 UI 框架或样式依赖。
-- 不要绕开 Ant Design 重写表单、表格、Modal、Dropdown 等业务组件。
-- 不要在 TSX 里硬编码颜色、阴影、圆角、动画时长。
-- 不要新增 `--tks-ambient-*`、`--tks-text-*` 或同义 token alias。
-- 不要给 body/app/login 使用 radial gradient 或 ambient 背景。
-- 不要在主内容卡片上使用 backdrop-filter。
-- 不要使用 `transition: all`。
-
-## 违规代码修复参考
-
-Before：
-```tsx
-<Content style={{ background: "#fff", borderRadius: 16, padding: 24 }}>
-  <Outlet />
-</Content>
-```
-After：
-```tsx
-<Content className="tks-card tks-admin-content">
-  <Outlet />
-</Content>
-```
-
-Before：
 ```css
-.panel {
-  transition: all 0.5s ease;
-}
-```
-After：
-```css
-.panel {
-  transition: opacity var(--tks-duration-base) var(--tks-ease-spring),
-    transform var(--tks-duration-base) var(--tks-ease-spring);
+.header {
+  background: var(--tks-panel);
+  border-bottom: 1px solid var(--tks-border);
+  box-shadow: none;
 }
 ```
 
-Before：
+### Inline style to token class
+
+Before:
+
 ```tsx
-function SettingsPage() {
-  return <div>Coming Soon</div>;
-}
+<Card style={{ background: "#fff", borderRadius: 16, padding: 24 }} />
 ```
-After：
+
+After:
+
 ```tsx
-function SettingsPage() {
-  return <ConstructionPage pageName="Settings" />;
+<Card className="admin-card" />
+```
+
+```css
+.admin-card {
+  background: var(--tks-panel);
+  border: 1px solid var(--tks-border);
+  border-radius: var(--tks-radius-md);
+  padding: var(--tks-space-6);
 }
 ```
 
-Before：
+### Gradient surface to whitelisted accent
+
+Before:
+
 ```css
-.login {
-  background: radial-gradient(circle, var(--tks-ambient-warm-soft), transparent), var(--tks-bg-app);
+.page {
+  background: radial-gradient(circle, #3b82f6, #ec4899);
 }
 ```
-After：
+
+After:
+
 ```css
-.login {
-  background: var(--tks-bg-app);
+.page {
+  background: var(--tks-bg);
 }
+
+.logo {
+  background: var(--tks-gradient-brand);
+  background-clip: text;
+  color: transparent;
+}
+```
+
+### Ant Design primary correction
+
+Before:
+
+```tsx
+<ConfigProvider theme={{ token: { colorPrimary: "#1677ff" } }}>
+```
+
+After:
+
+```tsx
+<ConfigProvider theme={{ token: { colorPrimary: "#8b5cf6" } }}>
 ```

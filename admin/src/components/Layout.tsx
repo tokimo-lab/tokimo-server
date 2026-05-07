@@ -31,7 +31,13 @@ const routes = [
   { key: "providers", path: "/providers", icon: <ApiOutlined /> },
   { key: "cache", path: "/cache", icon: <DatabaseOutlined /> },
   { key: "settings", path: "/settings", icon: <SettingOutlined /> },
-];
+] as const;
+
+const themeLabels = {
+  dark: "Dark theme",
+  light: "Light theme",
+  system: "System theme",
+};
 
 function readInitialCollapsed() {
   return localStorage.getItem(SIDER_COLLAPSED_STORAGE_KEY) === "true";
@@ -41,9 +47,8 @@ function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, i18n } = useTranslation();
-  const { mode, toggleMode } = useAdminTheme();
+  const { mode, resolvedMode, toggleMode } = useAdminTheme();
   const [collapsed, setCollapsed] = useState(readInitialCollapsed);
-  const isDark = mode === "dark";
 
   const selectedKey =
     routes.find((item) => location.pathname.startsWith(item.path))?.key ??
@@ -55,14 +60,16 @@ function Layout() {
   };
 
   const currentLang = i18n.language?.startsWith("zh") ? "zh" : "en";
+  const themeIcon =
+    resolvedMode === "dark" ? <MoonOutlined /> : <SunOutlined />;
 
   return (
     <AntLayout className="tks-admin-shell">
       <Sider
-        className="tks-glass tks-admin-sider"
+        className="tks-admin-sider"
         collapsible
         collapsed={collapsed}
-        collapsedWidth={64}
+        collapsedWidth={56}
         onCollapse={(nextCollapsed) => {
           localStorage.setItem(
             SIDER_COLLAPSED_STORAGE_KEY,
@@ -70,14 +77,23 @@ function Layout() {
           );
           setCollapsed(nextCollapsed);
         }}
-        theme={mode}
-        width={220}
+        theme={resolvedMode}
+        width={240}
       >
+        <div className="tks-sider-brand">
+          <span className="tks-brand-mark" aria-hidden="true" />
+          {!collapsed ? (
+            <span className="tks-brand-wordmark">
+              <span className="gradient-text">Tokimo</span>{" "}
+              <span className="tks-brand-server">Server</span>
+            </span>
+          ) : null}
+        </div>
         <Menu
           className="tks-admin-menu"
           mode="inline"
           selectedKeys={[selectedKey]}
-          theme={mode}
+          theme={resolvedMode}
           items={routes.map((item) => ({
             key: item.key,
             icon: item.icon,
@@ -86,15 +102,19 @@ function Layout() {
         />
       </Sider>
       <AntLayout className="tks-admin-main">
-        <Header className="tks-glass tks-admin-header">
+        <Header className="tks-admin-header">
           <div className="tks-admin-header-left">
-            <div className="tks-brand">
-              <span className="tks-brand-mark" aria-hidden="true" />
-              <span className="tks-brand-text">tokimo-server</span>
-            </div>
             <Breadcrumb items={[{ title: t(`nav.${selectedKey}`) }]} />
           </div>
           <div className="tks-admin-header-actions">
+            <Button
+              aria-label={`${themeLabels[mode]}: click to cycle light, dark, system`}
+              icon={themeIcon}
+              onClick={toggleMode}
+              type="text"
+            >
+              {mode === "system" ? "System" : null}
+            </Button>
             <Segmented
               size="small"
               value={currentLang}
@@ -105,14 +125,6 @@ function Layout() {
                 { label: t("header.language.zh"), value: "zh" },
                 { label: t("header.language.en"), value: "en" },
               ]}
-            />
-            <Button
-              aria-label={t(
-                `header.theme.${mode === "dark" ? "light" : "dark"}`,
-              )}
-              icon={isDark ? <SunOutlined /> : <MoonOutlined />}
-              onClick={toggleMode}
-              type="text"
             />
             <Dropdown
               menu={{
@@ -141,7 +153,7 @@ function Layout() {
           </div>
         </Header>
         <AntLayout className="tks-admin-content-wrap">
-          <Content className="tks-card tks-admin-content">
+          <Content className="tks-admin-content">
             <Outlet />
           </Content>
         </AntLayout>
