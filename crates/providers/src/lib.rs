@@ -7,6 +7,7 @@ pub mod douban;
 pub mod fanart;
 pub mod lrclib;
 pub mod musicbrainz;
+pub mod nominatim;
 pub mod omdb;
 pub mod open_meteo;
 pub mod spotify;
