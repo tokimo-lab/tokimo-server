@@ -9,9 +9,8 @@ An adapter, cache, and CDN-fronting service for third-party APIs (TMDB, Baidu Ho
 - 🌊 **Rate Limiting**: Token-bucket rate limiter persisted to PostgreSQL
 - 💾 **Caching**: Database-backed caching with TTL
 - 📦 **Asset Storage**: Local filesystem · S3-compatible (AWS S3 / MinIO) · Aliyun OSS
-- 🎬 **TMDB Integration**: Movie metadata + image download
+- 🎬 **20+ Provider Adapters**: video metadata (TMDB, OMDb, TheTVDB, Bangumi, Fanart, Douban) · music (Spotify, MusicBrainz, Deezer, LRCLIB) · books (Qidian) · encyclopedia (Wikipedia) · geo/weather (Open-Meteo, Nominatim, Geocoding) · holidays (Timor + Nager) · subtitles (Assrt) · releases (GitHub) · trending (Baidu Hot, Baidu Sports)
 - 🔥 **Hot Search Aggregator**: Multi-source trending topics (Weibo, Bilibili, Baidu, GitHub Trending, Hacker News, V2EX)
-- ⚽ **Baidu Sports**: Schedule fetching with automatic prewarm
 
 ## Tech Stack
 
@@ -37,10 +36,11 @@ graph TB
         Storage[Storage Layer]
     end
     
-    subgraph Providers
-        TMDB[TMDB Provider]
-        Hot[Hot Search Provider]
-        Sports[Sports Provider]
+    subgraph Providers["Providers (20+ adapters)"]
+        Video[Video: TMDB · OMDb · TheTVDB · Bangumi · Fanart · Douban]
+        Music[Music: Spotify · MusicBrainz · Deezer · LRCLIB]
+        Geo[Geo/Weather: Open-Meteo · Nominatim · Geocoding · Holiday]
+        Misc[Misc: Wikipedia · Qidian · Assrt · GitHub Releases · Baidu Hot/Sports]
     end
     
     DB[(PostgreSQL)]
@@ -70,44 +70,48 @@ Multi-instance deployments dedup concurrent identical requests in two tiers. The
 
 ## Provider Status
 
-| Provider | Status | Endpoints | Rate Limit | Cache TTL |
-|----------|--------|-----------|------------|-----------|
-| **TMDB** | ✅ MVP | `GET /api/tmdb/movie/:id` | 10 req/s | Persistent (DB) |
-| **Baidu Hot Search** | ✅ MVP | `GET /api/hot/list?id=weibo` | Per-source | 2 min |
-| **Baidu Sports** | ✅ MVP | `GET /api/sports/schedule?type=hot&date=YYYY-MM-DD` | 10 req/s | 60s |
-| OMDb | 🚧 TODO | - | - | - |
-| TheTVDB | 🚧 TODO | - | - | - |
-| Bangumi | 🚧 TODO | - | - | - |
-| Fanart.tv | 🚧 TODO | - | - | - |
-| Douban | 🚧 TODO | - | - | - |
-| Spotify | 🚧 TODO | - | - | - |
-| MusicBrainz | 🚧 TODO | - | - | - |
-| LRCLIB | 🚧 TODO | - | - | - |
-| OpenSubtitles | 🚧 TODO | - | - | - |
-| Assrt | 🚧 TODO | - | - | - |
-| subdl | 🚧 TODO | - | - | - |
-| Anna's Archive | 🚧 TODO | - | - | - |
-| libgen | 🚧 TODO | - | - | - |
-| OpenAlex | 🚧 TODO | - | - | - |
-| arXiv | 🚧 TODO | - | - | - |
-| CrossRef | 🚧 TODO | - | - | - |
-| Semantic Scholar | 🚧 TODO | - | - | - |
-| Open-Meteo | 🚧 TODO | - | - | - |
-| Nominatim | 🚧 TODO | - | - | - |
-| Wikipedia | 🚧 TODO | - | - | - |
-| GitHub Releases | 🚧 TODO | - | - | - |
-| Zhihu | 🚧 TODO | - | - | - |
-| Juejin | 🚧 TODO | - | - | - |
-| SSPai | 🚧 TODO | - | - | - |
-| 36Kr | 🚧 TODO | - | - | - |
-| ThePaper | 🚧 TODO | - | - | - |
-| Hupu | 🚧 TODO | - | - | - |
-| ITHome | 🚧 TODO | - | - | - |
-| LinuxDo | 🚧 TODO | - | - | - |
-| Douban Movie | 🚧 TODO | - | - | - |
-| Tieba | 🚧 TODO | - | - | - |
-| Douyin | 🚧 TODO | - | - | - |
-| Toutiao | 🚧 TODO | - | - | - |
+All 20 adapters below follow the same pattern: typed adapter → DB cache table → cross-process single-flight → rate-limited upstream call.
+
+| Provider | Endpoints (representative) | Rate Limit | Auth |
+|----------|---------------------------|------------|------|
+| TMDB | `/api/tmdb/{movie,tv,season,episode,person,image}/...` | 10/s | `TMDB_API_KEY` |
+| OMDb | `/api/omdb/...` | 10/s | `OMDB_API_KEY` |
+| TheTVDB | `/api/thetvdb/...` | 10/s | `THETVDB_API_KEY` |
+| Bangumi | `/api/bangumi/...` | 10/s | `BANGUMI_USER_AGENT` |
+| Fanart | `/api/fanart/...` | 10/s | `FANART_API_KEY` |
+| Douban | `/api/douban/...` | 1/s | scraping (no key) |
+| Spotify | `/api/spotify/...` | 30/s | `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET` |
+| MusicBrainz | `/api/musicbrainz/...` | 1/s | `MUSICBRAINZ_USER_AGENT` |
+| Deezer | `/api/deezer/...` | 30/s | none |
+| LRCLIB | `/api/lrclib/...` | 30/s | none |
+| Qidian | `/api/qidian/book/:id`, `/api/qidian/search` | 1/s | scraping (no key) |
+| Wikipedia | `/api/wikipedia/summary?title=&lang=` | 10/s | none |
+| Open-Meteo | `/api/openmeteo/{forecast,air-quality}` | 100/s | none |
+| Nominatim | `/api/nominatim/{search,reverse}` | **1/s** (TOS) | `NOMINATIM_USER_AGENT` |
+| Geocoding | `/api/geocoding/{forward,reverse}` (composite) | 30/s | reuses Nominatim UA |
+| Holiday | `/api/holiday/:country/:year` (Timor + Nager merged) | 10/s | none |
+| Assrt | `/api/assrt/{search,sub/:id/detail}` | 10/s | `ASSRT_API_KEY` |
+| GitHub Releases | `/api/github/releases/:owner/:repo/{latest,list}` | 30/s | optional `GITHUB_TOKEN` |
+| Baidu Hot | `/api/hot/list?id=...` | per-source | none |
+| Baidu Sports | `/api/sports/schedule?...` | 10/s | none |
+
+## Environment Variables
+
+Server / database / storage env vars are listed in [Configuration](#configuration). Below are the **provider auth** env vars; absent variables disable the corresponding routes (or fall back to anonymous mode for providers that support it).
+
+| Variable | Required by | Notes |
+|----------|-------------|-------|
+| `TMDB_API_KEY` | required | TMDB v3 API key |
+| `OMDB_API_KEY` | required | OMDb apikey |
+| `THETVDB_API_KEY` | required | TheTVDB v4 API key (server exchanges for JWT) |
+| `BANGUMI_USER_AGENT` | required | Bangumi requires a descriptive UA per their TOS |
+| `FANART_API_KEY` | required | fanart.tv project API key |
+| `SPOTIFY_CLIENT_ID` | required | Spotify app client id (client_credentials flow) |
+| `SPOTIFY_CLIENT_SECRET` | required | paired with `SPOTIFY_CLIENT_ID` |
+| `MUSICBRAINZ_USER_AGENT` | required | MusicBrainz requires a contact UA per their TOS |
+| `NOMINATIM_USER_AGENT` | required | OSM Nominatim requires a contact UA; **also reused by `/api/geocoding`** |
+| `ASSRT_API_KEY` | required | assrt.net subtitle API token |
+| `GITHUB_TOKEN` | optional | raises GitHub anonymous rate limit (60/h → 5000/h) |
 
 ## Quick Start
 
