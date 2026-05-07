@@ -24,15 +24,10 @@ function LoginPage() {
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        height: "100vh",
-      }}
-    >
-      <Card title={t("login.cardTitle")} style={{ width: 400 }}>
+    <div className="tks-login-page">
+      <Card className="tks-card tks-login-card">
+        <h1 className="tks-login-title">{t("login.cardTitle")}</h1>
+        <p className="tks-login-subtitle">tokimo-server admin console</p>
         <Form onFinish={onFinish} layout="vertical">
           <Form.Item
             label={t("login.bootstrapKeyLabel")}

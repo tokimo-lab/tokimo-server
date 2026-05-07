@@ -98,7 +98,7 @@ function ServiceKeysPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
+      <div className="tks-admin-section-gap">
         <Button type="primary" onClick={() => setModalVisible(true)}>
           {t("serviceKeys.createBtn")}
         </Button>
@@ -129,7 +129,7 @@ function ServiceKeysPage() {
                 setModalVisible(false);
                 setCreatedToken(null);
               }}
-              style={{ marginTop: 16 }}
+              className="tks-admin-modal-action"
             >
               {t("common.close")}
             </Button>

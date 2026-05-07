@@ -354,7 +354,7 @@ function ProviderConfigsPage() {
               onCopy: () =>
                 messageApi.success(t("providers.serviceKey.copied")),
             }}
-            style={{ display: "inline-block", maxWidth: "100%" }}
+            className="tks-admin-sample-url"
             ellipsis
           >
             {v}
@@ -382,7 +382,7 @@ function ProviderConfigsPage() {
       width: 220,
       render: (vars: string[]) =>
         vars.length === 0 ? (
-          <span style={{ color: "#999" }}>—</span>
+          <span className="tks-admin-muted">—</span>
         ) : (
           <Space size={[4, 4]} wrap>
             {vars.map((v) => (
@@ -413,11 +413,11 @@ function ProviderConfigsPage() {
       <Alert
         type="info"
         showIcon
-        style={{ marginBottom: 16 }}
+        className="tks-admin-section-gap"
         message={t("providers.readOnlyTitle")}
         description={t("providers.readOnlyDescription")}
       />
-      <Space.Compact style={{ width: "100%", marginBottom: 16 }}>
+      <Space.Compact className="tks-admin-full-width-section-gap">
         <Input
           addonBefore={t("providers.serviceKey.label")}
           placeholder={t("providers.serviceKey.placeholder")}

@@ -36,7 +36,7 @@ function CacheInspectorPage() {
       <Alert
         type="warning"
         showIcon
-        style={{ marginBottom: 16 }}
+        className="tks-admin-section-gap"
         message={t("cache.comingSoonTitle")}
         description={
           <>
@@ -60,7 +60,7 @@ function CacheInspectorPage() {
         renderItem={(item) => (
           <List.Item>
             <code>{item.table}</code>
-            <Tag style={{ marginLeft: 12 }}>{item.provider}</Tag>
+            <Tag className="tks-admin-inline-gap-left">{item.provider}</Tag>
           </List.Item>
         )}
       />

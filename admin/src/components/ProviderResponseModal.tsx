@@ -97,17 +97,7 @@ function ProviderResponseModal({
             </Space>
           </Paragraph>
           <Text strong>{t("providers.test.body")}:</Text>
-          <pre
-            style={{
-              background: "#f5f5f5",
-              padding: 12,
-              borderRadius: 4,
-              maxHeight: 400,
-              overflow: "auto",
-              fontSize: 12,
-              marginTop: 8,
-            }}
-          >
+          <pre className="tks-provider-response-body">
             {result.error ?? result.body}
           </pre>
         </div>

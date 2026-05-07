@@ -11,7 +11,6 @@ import {
 } from "@ant-design/icons";
 import {
   Layout as AntLayout,
-  Avatar,
   Breadcrumb,
   Button,
   Dropdown,
@@ -58,8 +57,9 @@ function Layout() {
   const currentLang = i18n.language?.startsWith("zh") ? "zh" : "en";
 
   return (
-    <AntLayout style={{ minHeight: "100vh" }}>
+    <AntLayout className="tks-admin-shell">
       <Sider
+        className="tks-glass tks-admin-sider"
         collapsible
         collapsed={collapsed}
         collapsedWidth={64}
@@ -74,10 +74,10 @@ function Layout() {
         width={220}
       >
         <Menu
+          className="tks-admin-menu"
           mode="inline"
           selectedKeys={[selectedKey]}
           theme={mode}
-          style={{ borderRight: 0, paddingTop: 16 }}
           items={routes.map((item) => ({
             key: item.key,
             icon: item.icon,
@@ -85,34 +85,16 @@ function Layout() {
           }))}
         />
       </Sider>
-      <AntLayout>
-        <Header
-          style={{
-            alignItems: "center",
-            background: isDark ? "#141414" : "#fff",
-            borderBottom: `1px solid ${isDark ? "#303030" : "#f0f0f0"}`,
-            display: "flex",
-            justifyContent: "space-between",
-            padding: "0 24px",
-          }}
-        >
-          <div style={{ alignItems: "center", display: "flex", gap: 24 }}>
-            <div
-              style={{
-                color: isDark ? "#fff" : "#111827",
-                fontSize: 18,
-                fontWeight: 700,
-                letterSpacing: 0.2,
-              }}
-            >
-              tokimo-server
+      <AntLayout className="tks-admin-main">
+        <Header className="tks-glass tks-admin-header">
+          <div className="tks-admin-header-left">
+            <div className="tks-brand">
+              <span className="tks-brand-mark" aria-hidden="true" />
+              <span className="tks-brand-text">tokimo-server</span>
             </div>
-            <Breadcrumb
-              items={[{ title: t(`nav.${selectedKey}`) }]}
-              style={{ margin: 0 }}
-            />
+            <Breadcrumb items={[{ title: t(`nav.${selectedKey}`) }]} />
           </div>
-          <div style={{ alignItems: "center", display: "flex", gap: 12 }}>
+          <div className="tks-admin-header-actions">
             <Segmented
               size="small"
               value={currentLang}
@@ -147,32 +129,19 @@ function Layout() {
               trigger={["click"]}
             >
               <Button
+                icon={
+                  <span className="tks-avatar-mark">
+                    <UserOutlined />
+                  </span>
+                }
                 shape="circle"
                 type="text"
-                icon={<Avatar size={28} icon={<UserOutlined />} />}
               />
             </Dropdown>
           </div>
         </Header>
-        <AntLayout
-          style={{
-            background: isDark ? "#000" : "#f5f7fb",
-            padding: 24,
-          }}
-        >
-          <Content
-            style={{
-              background: isDark ? "#141414" : "#fff",
-              border: `1px solid ${isDark ? "#303030" : "#edf0f5"}`,
-              borderRadius: 16,
-              boxShadow: isDark
-                ? "0 16px 40px rgba(0, 0, 0, 0.35)"
-                : "0 16px 40px rgba(15, 23, 42, 0.06)",
-              margin: 0,
-              minHeight: 280,
-              padding: 24,
-            }}
-          >
+        <AntLayout className="tks-admin-content-wrap">
+          <Content className="tks-card tks-admin-content">
             <Outlet />
           </Content>
         </AntLayout>
