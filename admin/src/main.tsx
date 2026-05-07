@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App as AntdApp, ConfigProvider, theme } from "antd";
 import type { ThemeConfig } from "antd";
 import enUS from "antd/locale/en_US";
@@ -9,6 +10,15 @@ import "./styles/index.css";
 import App from "./App";
 import "./i18n";
 import { AdminThemeProvider, useAdminTheme } from "./theme";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchInterval: 30_000,
+      staleTime: 15_000,
+    },
+  },
+});
 
 const sharedToken: ThemeConfig["token"] = {
   fontFamily: "Inter, -apple-system, system-ui, sans-serif",
@@ -76,7 +86,9 @@ const root = ReactDOM.createRoot(rootEl);
 root.render(
   <React.StrictMode>
     <AdminThemeProvider>
-      <LocalizedRoot />
+      <QueryClientProvider client={queryClient}>
+        <LocalizedRoot />
+      </QueryClientProvider>
     </AdminThemeProvider>
   </React.StrictMode>,
 );

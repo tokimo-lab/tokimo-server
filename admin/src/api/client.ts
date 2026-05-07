@@ -90,3 +90,103 @@ export async function listCache() {
 
   return res.json();
 }
+
+export interface DashboardOverview {
+  total_keys: number;
+  total_providers: number;
+  cache_entries_total: number;
+  calls_24h: number;
+  errors_24h: number;
+  cache_hit_ratio_24h: number;
+}
+
+export interface DashboardTimeseriesPoint {
+  ts: number;
+  calls: number;
+  errors: number;
+  hits: number;
+  misses: number;
+}
+
+export interface DashboardProviderStats {
+  provider: string;
+  calls: number;
+  errors: number;
+  p50_ms: number;
+  p95_ms: number;
+  hit_ratio: number;
+}
+
+export interface DashboardRecentError {
+  ts: number;
+  provider: string;
+  status: number;
+  duration_ms: number;
+}
+
+export async function getDashboardOverview(): Promise<DashboardOverview> {
+  const res = await fetch(`${API_BASE}/admin/dashboard/overview`, {
+    headers: getHeaders(),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch dashboard overview");
+  }
+
+  return res.json();
+}
+
+export async function getDashboardTimeseries(
+  range: string,
+  bucket: string,
+): Promise<DashboardTimeseriesPoint[]> {
+  const params = new URLSearchParams({ range, bucket });
+  const res = await fetch(
+    `${API_BASE}/admin/dashboard/timeseries?${params.toString()}`,
+    {
+      headers: getHeaders(),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch dashboard timeseries");
+  }
+
+  return res.json();
+}
+
+export async function getDashboardByProvider(
+  range: string,
+): Promise<DashboardProviderStats[]> {
+  const params = new URLSearchParams({ range });
+  const res = await fetch(
+    `${API_BASE}/admin/dashboard/by-provider?${params.toString()}`,
+    {
+      headers: getHeaders(),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch dashboard provider stats");
+  }
+
+  return res.json();
+}
+
+export async function getDashboardRecentErrors(
+  limit: number,
+): Promise<DashboardRecentError[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  const res = await fetch(
+    `${API_BASE}/admin/dashboard/recent-errors?${params.toString()}`,
+    {
+      headers: getHeaders(),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch dashboard recent errors");
+  }
+
+  return res.json();
+}
