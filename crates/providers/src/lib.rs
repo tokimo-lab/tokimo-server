@@ -8,9 +8,11 @@ pub mod fanart;
 pub mod lrclib;
 pub mod musicbrainz;
 pub mod omdb;
+pub mod open_meteo;
 pub mod spotify;
 pub mod thetvdb;
 pub mod tmdb;
+pub mod wikipedia;
 
 pub use baidu_hot::*;
 pub use baidu_sports::*;

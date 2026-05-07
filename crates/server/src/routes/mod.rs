@@ -7,10 +7,12 @@ pub mod hot;
 pub mod lrclib;
 pub mod musicbrainz;
 pub mod omdb;
+pub mod openmeteo;
 pub mod sports;
 pub mod spotify;
 pub mod thetvdb;
 pub mod tmdb;
+pub mod wikipedia;
 
 use axum::{middleware, routing::get, Router};
 
@@ -74,6 +76,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest(
             "/lrclib",
             lrclib::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
+        .nest(
+            "/openmeteo",
+            openmeteo::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
         .with_state(state)
 }
