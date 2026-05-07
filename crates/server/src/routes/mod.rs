@@ -5,6 +5,7 @@ pub mod deezer;
 pub mod douban;
 pub mod fanart;
 pub mod geocoding;
+pub mod github;
 pub mod holiday;
 pub mod hot;
 pub mod lrclib;
@@ -109,6 +110,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest(
             "/assrt",
             assrt::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
+        )
+        .nest(
+            "/github",
+            github::routes().route_layer(middleware::from_fn_with_state(state.clone(), service_auth)),
         )
         .with_state(state)
 }
