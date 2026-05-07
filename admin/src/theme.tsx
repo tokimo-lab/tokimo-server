@@ -3,6 +3,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -25,6 +26,10 @@ function readInitialTheme(): AdminThemeMode {
 
 export function AdminThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<AdminThemeMode>(readInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = mode;
+  }, [mode]);
 
   const setMode = useCallback((nextMode: AdminThemeMode) => {
     localStorage.setItem(THEME_STORAGE_KEY, nextMode);

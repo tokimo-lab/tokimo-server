@@ -1,0 +1,10 @@
+@import "./reset.css";
+@import "./tokens.css";
+
+html,
+body,
+#root {
+  background: var(--tks-bg-app);
+  color: var(--tks-fg-primary);
+  font-family: var(--tks-font-sans);
+}
