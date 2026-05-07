@@ -10,6 +10,7 @@ pub mod musicbrainz;
 pub mod nominatim;
 pub mod omdb;
 pub mod open_meteo;
+pub mod qidian;
 pub mod spotify;
 pub mod thetvdb;
 pub mod tmdb;
