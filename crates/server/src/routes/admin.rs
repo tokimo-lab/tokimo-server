@@ -29,6 +29,8 @@ pub fn protected_routes() -> Router<AppState> {
     Router::new()
         .route("/service-keys", get(list_keys).post(create_key).delete(delete_key))
         .route("/provider-configs", get(list_provider_configs))
+        .route("/providers", get(list_providers))
+        .route("/providers/:key", axum::routing::patch(patch_provider))
         .route("/dashboard/overview", get(dashboard_overview))
         .route("/dashboard/timeseries", get(dashboard_timeseries))
         .route("/dashboard/by-provider", get(dashboard_by_provider))
@@ -195,6 +197,98 @@ async fn list_provider_configs(State(_state): State<AppState>) -> AppResult<Json
     Ok(Json(serde_json::json!({ "configs": [] })))
 }
 
+#[derive(Serialize)]
+struct ProviderResponseItem {
+    key: String,
+    category: String,
+    prefix: String,
+    sample: String,
+    rate_limit: String,
+    auth_required: crate::providers_registry::AuthRequired,
+    env_keys: Vec<String>,
+    env_status: std::collections::HashMap<String, bool>,
+    ttl_seconds: i64,
+    enabled: bool,
+    i18n_name_key: String,
+    i18n_desc_key: String,
+}
+
+async fn list_providers(State(state): State<AppState>) -> AppResult<Json<Vec<ProviderResponseItem>>> {
+    let cfg = state.provider_configs.read().await;
+    let mut out = Vec::with_capacity(crate::providers_registry::REGISTRY.len());
+    for meta in crate::providers_registry::REGISTRY.iter() {
+        let runtime = cfg.get(meta.key);
+        let env_status: std::collections::HashMap<String, bool> = meta
+            .env_keys
+            .iter()
+            .map(|k| {
+                let is_set = std::env::var(k).map(|v| !v.is_empty()).unwrap_or(false);
+                ((*k).to_string(), is_set)
+            })
+            .collect();
+        out.push(ProviderResponseItem {
+            key: meta.key.to_string(),
+            category: meta.category.to_string(),
+            prefix: meta.prefix.to_string(),
+            sample: meta.sample.to_string(),
+            rate_limit: meta.rate_limit.to_string(),
+            auth_required: meta.auth_required,
+            env_keys: meta.env_keys.iter().map(|s| (*s).to_string()).collect(),
+            env_status,
+            ttl_seconds: runtime.map(|r| r.ttl_seconds).unwrap_or(meta.default_ttl_seconds),
+            enabled: runtime.map(|r| r.enabled).unwrap_or(true),
+            i18n_name_key: meta.i18n_name_key.to_string(),
+            i18n_desc_key: meta.i18n_desc_key.to_string(),
+        });
+    }
+    Ok(Json(out))
+}
+
+#[derive(Deserialize)]
+struct PatchProviderRequest {
+    ttl_seconds: Option<i32>,
+    enabled: Option<bool>,
+}
+
+async fn patch_provider(
+    State(state): State<AppState>,
+    Path(key): Path<String>,
+    Json(req): Json<PatchProviderRequest>,
+) -> AppResult<Json<serde_json::Value>> {
+    if crate::providers_registry::lookup(&key).is_none() {
+        return Err(AppError::BadRequest(format!("unknown provider: {}", key)));
+    }
+    if let Some(t) = req.ttl_seconds {
+        if !(0..=7 * 24 * 60 * 60).contains(&t) {
+            return Err(AppError::BadRequest(
+                "ttl_seconds out of range (0..=604800)".to_string(),
+            ));
+        }
+    }
+
+    let model = crate::db::entities::ProviderConfigs::find_by_id(key.clone())
+        .one(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .ok_or_else(|| AppError::Internal(format!("provider config row missing: {}", key)))?;
+
+    let mut am: crate::db::entities::provider_configs::ActiveModel = model.into();
+    if let Some(t) = req.ttl_seconds {
+        am.ttl_seconds = sea_orm::Set(t);
+    }
+    if let Some(e) = req.enabled {
+        am.enabled = sea_orm::Set(e);
+    }
+    am.updated_at = sea_orm::Set(chrono::Utc::now().into());
+    am.update(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    state.reload_provider_configs().await?;
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
 async fn list_cache(State(_state): State<AppState>) -> AppResult<Json<serde_json::Value>> {
     Ok(Json(serde_json::json!({ "entries": [] })))
 }
@@ -222,7 +316,7 @@ async fn dashboard_overview(State(state): State<AppState>) -> AppResult<Json<Das
 
     Ok(Json(DashboardOverviewResponse {
         total_keys: total_service_keys,
-        total_providers: 21,
+        total_providers: crate::providers_registry::REGISTRY.len() as u64,
         cache_entries_total: total_cache_entries,
         calls_24h: overview.calls_24h,
         errors_24h: overview.errors_24h,
