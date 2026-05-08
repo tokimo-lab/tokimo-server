@@ -233,6 +233,11 @@ const ENDPOINTS = [
     unique: () =>
       `/api/opensubtitles/search?imdb_id=tt${String(Math.floor(Math.random() * 9999999)).padStart(7, "0")}&languages=en`,
   },
+  {
+    name: "regielive.search",
+    repeat: ["/api/regielive/search?nume=Inception", "/api/regielive/search?nume=Frozen"],
+    unique: () => `/api/regielive/search?nume=${rand()}`,
+  },
 ];
 
 // ---------------------------------------------------------------------------

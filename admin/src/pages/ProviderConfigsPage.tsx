@@ -251,6 +251,15 @@ const PROVIDERS: ProviderRow[] = [
     authRequired: "yes",
     envVars: ["OPENSUBTITLES_API_KEY"],
   },
+  {
+    key: "regielive",
+    provider: "RegIeLive (Romanian subs)",
+    prefix: "/api/regielive/search",
+    sample: "/api/regielive/search?nume=Inception",
+    rateLimit: "10/s",
+    authRequired: "no",
+    envVars: [],
+  },
 ];
 
 interface FetchResult {
