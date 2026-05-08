@@ -13,7 +13,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Button,
@@ -21,8 +21,10 @@ import {
   Skeleton,
   Table,
   type TableProps,
+  Tooltip,
   Typography,
 } from "antd";
+import { RefreshCw } from "lucide-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -60,6 +62,23 @@ const RANGE_SECS: Record<RangeKey, { range: number; bucket: number }> = {
 };
 
 const ORDER_STORAGE_KEY = "tokimo-admin-dashboard-order-v1";
+const REFRESH_INTERVAL_STORAGE_KEY =
+  "tokimo-admin-dashboard-refresh-interval-v1";
+
+const REFRESH_INTERVAL_OPTIONS: ReadonlyArray<number> = [0, 10, 30, 60];
+const DEFAULT_REFRESH_INTERVAL = 30;
+
+function loadRefreshInterval(): number {
+  try {
+    const raw = localStorage.getItem(REFRESH_INTERVAL_STORAGE_KEY);
+    if (raw == null) return DEFAULT_REFRESH_INTERVAL;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return DEFAULT_REFRESH_INTERVAL;
+    return REFRESH_INTERVAL_OPTIONS.includes(n) ? n : DEFAULT_REFRESH_INTERVAL;
+  } catch {
+    return DEFAULT_REFRESH_INTERVAL;
+  }
+}
 
 const CHART_IDS = [
   "chart-timeseries",
@@ -252,6 +271,39 @@ function DashboardPage() {
     }
   }, [order]);
 
+  const [refreshInterval, setRefreshInterval] = useState<number>(() =>
+    loadRefreshInterval(),
+  );
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        REFRESH_INTERVAL_STORAGE_KEY,
+        String(refreshInterval),
+      );
+    } catch {
+      // ignore storage errors (private mode etc.)
+    }
+  }, [refreshInterval]);
+
+  const refetchInterval =
+    refreshInterval > 0 ? refreshInterval * 1000 : (false as const);
+  const sharedRefetch = {
+    refetchInterval,
+    refetchIntervalInBackground: false,
+  };
+
+  const qc = useQueryClient();
+  const [spinning, setSpinning] = useState(false);
+  const handleManualRefresh = async () => {
+    setSpinning(true);
+    try {
+      await qc.invalidateQueries({ queryKey: ["dashboard"] });
+      await qc.refetchQueries({ queryKey: ["dashboard"], type: "active" });
+    } finally {
+      setSpinning(false);
+    }
+  };
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
   );
@@ -259,28 +311,34 @@ function DashboardPage() {
   const overviewQuery = useQuery({
     queryKey: ["dashboard", "overview"],
     queryFn: getDashboardOverview,
+    ...sharedRefetch,
   });
   const timeseriesQuery = useQuery({
     queryKey: ["dashboard", "timeseries", rangeSecs, bucketSecs],
     queryFn: () => getDashboardTimeseries(rangeSecs, bucketSecs),
+    ...sharedRefetch,
   });
   const providersQuery = useQuery({
-    queryKey: ["dashboard", "providers", rangeSecs],
+    queryKey: ["dashboard", "by-provider", rangeSecs],
     queryFn: () => getDashboardByProvider(rangeSecs),
+    ...sharedRefetch,
   });
   const heatmapQuery = useQuery({
     queryKey: ["dashboard", "heatmap", rangeSecs, bucketSecs],
     queryFn: () => getDashboardHeatmap(rangeSecs, bucketSecs),
     retry: false,
+    ...sharedRefetch,
   });
   const statusQuery = useQuery({
-    queryKey: ["dashboard", "status", rangeSecs, bucketSecs],
+    queryKey: ["dashboard", "status-codes", rangeSecs, bucketSecs],
     queryFn: () => getDashboardStatusCodes(rangeSecs, bucketSecs),
     retry: false,
+    ...sharedRefetch,
   });
   const recentErrorsQuery = useQuery({
-    queryKey: ["dashboard", "recent-errors", 10],
+    queryKey: ["dashboard", "recent-errors"],
     queryFn: () => getDashboardRecentErrors(10),
+    ...sharedRefetch,
   });
   const cacheTablesQuery = useQuery({
     queryKey: ["dashboard", "cache-tables"],
@@ -288,6 +346,7 @@ function DashboardPage() {
       const { listCacheTables } = await import("../api/cache");
       return listCacheTables();
     },
+    ...sharedRefetch,
   });
 
   const overview = overviewQuery.data;
@@ -809,15 +868,38 @@ function DashboardPage() {
         >
           {t("dashboard.title")}
         </Typography.Title>
-        <Segmented
-          value={range}
-          onChange={(v) => setRange(v as RangeKey)}
-          options={[
-            { label: t("dashboard.range.1h"), value: "1h" },
-            { label: t("dashboard.range.24h"), value: "24h" },
-            { label: t("dashboard.range.7d"), value: "7d" },
-          ]}
-        />
+        <div className="flex items-center gap-3">
+          <Segmented
+            value={range}
+            onChange={(v) => setRange(v as RangeKey)}
+            options={[
+              { label: t("dashboard.range.1h"), value: "1h" },
+              { label: t("dashboard.range.24h"), value: "24h" },
+              { label: t("dashboard.range.7d"), value: "7d" },
+            ]}
+          />
+          <Segmented
+            value={refreshInterval}
+            onChange={(v) => setRefreshInterval(Number(v))}
+            options={[
+              { label: t("dashboard.refresh.off"), value: 0 },
+              { label: "10s", value: 10 },
+              { label: "30s", value: 30 },
+              { label: "60s", value: 60 },
+            ]}
+          />
+          <Tooltip title={t("dashboard.refresh.now")}>
+            <Button
+              icon={
+                <RefreshCw
+                  size={16}
+                  className={spinning ? "animate-spin" : undefined}
+                />
+              }
+              onClick={handleManualRefresh}
+            />
+          </Tooltip>
+        </div>
       </div>
 
       {overviewQuery.isError ? (

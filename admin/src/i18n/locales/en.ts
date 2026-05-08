@@ -158,6 +158,12 @@ const en = {
       "24h": "24h",
       "7d": "7d",
     },
+    refresh: {
+      label: "Refresh",
+      off: "Off",
+      now: "Refresh now",
+      interval: "Auto-refresh",
+    },
     columns: {
       time: "Time",
       provider: "Provider",

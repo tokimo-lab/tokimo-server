@@ -159,6 +159,12 @@ const zh: Resources = {
       "24h": "24 小时",
       "7d": "7 天",
     },
+    refresh: {
+      label: "刷新",
+      off: "关闭",
+      now: "立即刷新",
+      interval: "自动刷新",
+    },
     columns: {
       time: "时间",
       provider: "Provider",
