@@ -33,6 +33,8 @@ pub fn protected_routes() -> Router<AppState> {
         .route("/dashboard/timeseries", get(dashboard_timeseries))
         .route("/dashboard/by-provider", get(dashboard_by_provider))
         .route("/dashboard/recent-errors", get(dashboard_recent_errors))
+        .route("/dashboard/heatmap", get(dashboard_heatmap))
+        .route("/dashboard/status-codes", get(dashboard_status_codes))
         .route("/cache", get(list_cache))
         .route("/cache/tables", get(cache_tables))
         .route("/cache/:table", get(cache_list))
@@ -266,6 +268,40 @@ async fn dashboard_recent_errors(
 ) -> AppResult<Json<Vec<crate::metrics::ErrorSample>>> {
     let limit = query.limit.unwrap_or(20).min(100);
     Ok(Json(state.metrics.query_recent_errors(limit)))
+}
+
+#[derive(Deserialize)]
+struct RangeBucketSecsQuery {
+    range_secs: Option<i64>,
+    bucket_secs: Option<i64>,
+}
+
+fn validate_range_bucket(query: &RangeBucketSecsQuery) -> Result<(i64, i64), AppError> {
+    let range_secs = query.range_secs.unwrap_or(86_400);
+    let bucket_secs = query.bucket_secs.unwrap_or(3_600);
+    if range_secs <= 0 {
+        return Err(AppError::BadRequest("range_secs must be positive".to_string()));
+    }
+    if bucket_secs <= 0 {
+        return Err(AppError::BadRequest("bucket_secs must be positive".to_string()));
+    }
+    Ok((range_secs, bucket_secs))
+}
+
+async fn dashboard_heatmap(
+    State(state): State<AppState>,
+    Query(query): Query<RangeBucketSecsQuery>,
+) -> AppResult<Json<crate::metrics::HeatmapResponse>> {
+    let (range_secs, bucket_secs) = validate_range_bucket(&query)?;
+    Ok(Json(state.metrics.query_heatmap(range_secs, bucket_secs)))
+}
+
+async fn dashboard_status_codes(
+    State(state): State<AppState>,
+    Query(query): Query<RangeBucketSecsQuery>,
+) -> AppResult<Json<Vec<crate::metrics::StatusCodeBucket>>> {
+    let (range_secs, bucket_secs) = validate_range_bucket(&query)?;
+    Ok(Json(state.metrics.query_status_codes(range_secs, bucket_secs)))
 }
 
 fn parse_duration_secs(value: &str) -> Result<i64, AppError> {
