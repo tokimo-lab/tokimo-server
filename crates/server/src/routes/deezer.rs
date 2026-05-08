@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use axum::{
     extract::{Path, Query, State},
     response::{IntoResponse, Response},
@@ -12,7 +10,7 @@ use tokimo_providers::deezer;
 
 use crate::{
     db::entities::{deezer_albums, deezer_artists, deezer_tracks, DeezerAlbums, DeezerArtists, DeezerTracks},
-    metrics::cache_hit_response,
+    metrics::cache_hit,
     AppError, AppResult, AppState,
 };
 
@@ -25,13 +23,12 @@ pub fn routes() -> Router<AppState> {
 }
 
 async fn get_track(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Response> {
-    let started = Instant::now();
     if let Some(row) = DeezerTracks::find_by_id(id)
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "deezer", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("deezer").await?;
@@ -71,13 +68,12 @@ async fn get_track(State(state): State<AppState>, Path(id): Path<i64>) -> AppRes
 }
 
 async fn get_album(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Response> {
-    let started = Instant::now();
     if let Some(row) = DeezerAlbums::find_by_id(id)
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "deezer", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("deezer").await?;
@@ -117,13 +113,12 @@ async fn get_album(State(state): State<AppState>, Path(id): Path<i64>) -> AppRes
 }
 
 async fn get_artist(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Response> {
-    let started = Instant::now();
     if let Some(row) = DeezerArtists::find_by_id(id)
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "deezer", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("deezer").await?;

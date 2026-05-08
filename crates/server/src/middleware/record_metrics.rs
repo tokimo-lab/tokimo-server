@@ -7,7 +7,7 @@ use axum::{
 };
 
 use crate::{
-    metrics::{MetricSample, MetricsAlreadyRecorded},
+    metrics::{MetricSample, CACHE_HIT_HEADER},
     AppState,
 };
 
@@ -22,20 +22,25 @@ pub async fn record_metrics(State(state): State<AppState>, req: Request, next: N
 
     let response = next.run(req).await;
 
-    if response.extensions().get::<MetricsAlreadyRecorded>().is_some() {
-        return response;
-    }
-
     if let Some(provider) = provider {
         let duration_ms = started_at.elapsed().as_millis().min(u32::MAX as u128) as u32;
         let status = response.status().as_u16();
+        // `HeaderMap` lookups are case-insensitive, so any casing of `x-cache`
+        // works. Routes set this header via `metrics::cache_hit(...)` when
+        // returning a DB-cache-hit early-return.
+        let cache_hit = response
+            .headers()
+            .get(CACHE_HIT_HEADER)
+            .and_then(|value| value.to_str().ok())
+            .map(|value| value.eq_ignore_ascii_case("HIT"))
+            .unwrap_or(false);
 
         state.metrics.record(MetricSample {
             ts_unix: now_unix(),
             provider,
             status,
             duration_ms,
-            cache_hit: false,
+            cache_hit,
         });
     }
 

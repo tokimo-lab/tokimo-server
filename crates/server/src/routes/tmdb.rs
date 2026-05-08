@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use axum::{
     extract::{Path, State},
     response::{IntoResponse, Redirect, Response},
@@ -15,7 +13,7 @@ use tokimo_providers::{
 
 use crate::{
     db::entities::{tmdb_images, tmdb_movies, tmdb_objects, TmdbImages, TmdbMovies, TmdbObjects},
-    metrics::cache_hit_response,
+    metrics::cache_hit,
     AppError, AppResult, AppState,
 };
 
@@ -44,7 +42,6 @@ struct MovieResponse {
 }
 
 async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Response> {
-    let started = Instant::now();
     // Fast-path DB check before single-flight: avoids both a local lock and a
     // PG round-trip in the common cache-hit case.
     if let Some(movie) = TmdbMovies::find_by_id(id)
@@ -53,7 +50,7 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
         let resp = movie_to_response(&state, movie).await?;
-        return Ok(cache_hit_response(&state, "tmdb", started, Json(resp)));
+        return Ok(cache_hit(Json(resp)));
     }
 
     // DB miss - fetch from upstream with single-flight
@@ -172,7 +169,6 @@ async fn movie_to_response(state: &AppState, movie: tmdb_movies::Model) -> AppRe
 
 async fn fetch_or_cache_object(
     state: &AppState,
-    started: Instant,
     kind: &'static str,
     key: String,
     upstream: impl FnOnce(reqwest::Client, String) -> futures_util_compat::BoxFut + Send + 'static,
@@ -182,7 +178,7 @@ async fn fetch_or_cache_object(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(state, "tmdb", started, Json(obj.raw_json)));
+        return Ok(cache_hit(Json(obj.raw_json)));
     }
 
     let api_key = state
@@ -238,30 +234,22 @@ mod futures_util_compat {
 }
 
 async fn get_tv(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Response> {
-    let started = Instant::now();
-    fetch_or_cache_object(&state, started, "tv", id.to_string(), move |http, api_key| {
+    fetch_or_cache_object(&state, "tv", id.to_string(), move |http, api_key| {
         Box::pin(async move { tokimo_providers::tmdb::fetch_tv(&http, &api_key, id).await })
     })
     .await
 }
 
 async fn get_tv_season(State(state): State<AppState>, Path((id, n)): Path<(i32, i32)>) -> AppResult<Response> {
-    let started = Instant::now();
-    fetch_or_cache_object(
-        &state,
-        started,
-        "tv_season",
-        format!("{}:{}", id, n),
-        move |http, api_key| Box::pin(async move { fetch_tv_season(&http, &api_key, id, n).await }),
-    )
+    fetch_or_cache_object(&state, "tv_season", format!("{}:{}", id, n), move |http, api_key| {
+        Box::pin(async move { fetch_tv_season(&http, &api_key, id, n).await })
+    })
     .await
 }
 
 async fn get_tv_episode(State(state): State<AppState>, Path((id, s, e)): Path<(i32, i32, i32)>) -> AppResult<Response> {
-    let started = Instant::now();
     fetch_or_cache_object(
         &state,
-        started,
         "tv_episode",
         format!("{}:{}:{}", id, s, e),
         move |http, api_key| Box::pin(async move { fetch_tv_episode(&http, &api_key, id, s, e).await }),
@@ -270,8 +258,7 @@ async fn get_tv_episode(State(state): State<AppState>, Path((id, s, e)): Path<(i
 }
 
 async fn get_person(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Response> {
-    let started = Instant::now();
-    fetch_or_cache_object(&state, started, "person", id.to_string(), move |http, api_key| {
+    fetch_or_cache_object(&state, "person", id.to_string(), move |http, api_key| {
         Box::pin(async move { fetch_person(&http, &api_key, id).await })
     })
     .await
@@ -283,7 +270,6 @@ async fn get_person(State(state): State<AppState>, Path(id): Path<i32>) -> AppRe
 /// `original/abc.jpg` or `w500/def.png`); caches once to storage and
 /// redirects subsequent hits to the storage public URL.
 async fn get_image(State(state): State<AppState>, Path(path): Path<String>) -> AppResult<Response> {
-    let started = Instant::now();
     // Normalize: caller may pass with or without leading slash; we always
     // store with a leading slash so cache keys are stable.
     let normalized = if path.starts_with('/') {
@@ -302,7 +288,7 @@ async fn get_image(State(state): State<AppState>, Path(path): Path<String>) -> A
             .url_for(&row.storage_key)
             .await
             .map_err(|e| AppError::Internal(e.to_string()))?;
-        return Ok(cache_hit_response(&state, "tmdb", started, Redirect::temporary(&url)));
+        return Ok(cache_hit(Redirect::temporary(&url)));
     }
 
     state.rate_limiter.acquire("tmdb").await?;

@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use axum::{
     extract::{Path, Query, State},
     response::{IntoResponse, Response},
@@ -12,7 +10,7 @@ use tokimo_providers::bangumi;
 
 use crate::{
     db::entities::{bangumi_subjects, BangumiSubjects},
-    metrics::cache_hit_response,
+    metrics::cache_hit,
     AppError, AppResult, AppState,
 };
 
@@ -33,13 +31,12 @@ fn require_user_agent(state: &AppState) -> AppResult<String> {
 }
 
 async fn get_subject(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Response> {
-    let started = Instant::now();
     if let Some(row) = BangumiSubjects::find_by_id(id)
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "bangumi", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     let ua = require_user_agent(&state)?;

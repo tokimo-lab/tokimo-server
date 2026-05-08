@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use axum::{
     extract::{Path, Query, State},
     response::{IntoResponse, Response},
@@ -12,7 +10,7 @@ use tokimo_providers::assrt;
 
 use crate::{
     db::entities::{assrt_searches, assrt_sub_details, AssrtSearches, AssrtSubDetails},
-    metrics::cache_hit_response,
+    metrics::cache_hit,
     AppError, AppResult, AppState,
 };
 
@@ -38,7 +36,6 @@ pub struct SearchQuery {
 }
 
 async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>) -> AppResult<Response> {
-    let started = Instant::now();
     let key = assrt::search_cache_key(&q.q, q.cnt, q.pos);
 
     if let Some(row) = AssrtSearches::find_by_id(key.clone())
@@ -46,7 +43,7 @@ async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "assrt", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     let token = require_token(&state)?;
@@ -92,13 +89,12 @@ async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>)
 }
 
 async fn get_detail(State(state): State<AppState>, Path(id): Path<String>) -> AppResult<Response> {
-    let started = Instant::now();
     if let Some(row) = AssrtSubDetails::find_by_id(id.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "assrt", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     let token = require_token(&state)?;

@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use axum::{
     extract::{Query, State},
     response::{IntoResponse, Response},
@@ -13,7 +11,7 @@ use tokimo_providers::currency;
 
 use crate::{
     db::entities::{currency_rates, CurrencyRates},
-    metrics::cache_hit_response,
+    metrics::cache_hit,
     AppError, AppResult, AppState,
 };
 
@@ -31,7 +29,6 @@ pub struct RatesQuery {
 }
 
 async fn get_rates(State(state): State<AppState>, Query(q): Query<RatesQuery>) -> AppResult<Response> {
-    let started = Instant::now();
     let base = normalize_code(q.base.as_deref().unwrap_or("USD"))
         .ok_or_else(|| AppError::BadRequest("Invalid base currency".to_string()))?;
     let days = q.days.unwrap_or(7);
@@ -48,12 +45,7 @@ async fn get_rates(State(state): State<AppState>, Query(q): Query<RatesQuery>) -
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
     if let Some(row) = existing.as_ref().filter(|row| is_fresh(row.fetched_at)) {
-        return Ok(cache_hit_response(
-            &state,
-            "currency",
-            started,
-            Json(row.raw_json.clone()),
-        ));
+        return Ok(cache_hit(Json(row.raw_json.clone())));
     }
 
     state.rate_limiter.acquire("currency").await?;

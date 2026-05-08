@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use axum::{
     extract::{Path, Query, State},
     response::{IntoResponse, Response},
@@ -15,7 +13,7 @@ use crate::{
         spotify_albums, spotify_artists, spotify_token_cache, spotify_tracks, SpotifyAlbums, SpotifyArtists,
         SpotifyTokenCache, SpotifyTracks,
     },
-    metrics::cache_hit_response,
+    metrics::cache_hit,
     AppError, AppResult, AppState,
 };
 
@@ -109,13 +107,12 @@ async fn ensure_token(state: &AppState) -> AppResult<String> {
 }
 
 async fn get_artist(State(state): State<AppState>, Path(id): Path<String>) -> AppResult<Response> {
-    let started = Instant::now();
     if let Some(row) = SpotifyArtists::find_by_id(id.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "spotify", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("spotify").await?;
@@ -157,13 +154,12 @@ async fn get_artist(State(state): State<AppState>, Path(id): Path<String>) -> Ap
 }
 
 async fn get_album(State(state): State<AppState>, Path(id): Path<String>) -> AppResult<Response> {
-    let started = Instant::now();
     if let Some(row) = SpotifyAlbums::find_by_id(id.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "spotify", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("spotify").await?;
@@ -205,13 +201,12 @@ async fn get_album(State(state): State<AppState>, Path(id): Path<String>) -> App
 }
 
 async fn get_track(State(state): State<AppState>, Path(id): Path<String>) -> AppResult<Response> {
-    let started = Instant::now();
     if let Some(row) = SpotifyTracks::find_by_id(id.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "spotify", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("spotify").await?;

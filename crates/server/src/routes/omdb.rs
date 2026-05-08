@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use axum::{
     extract::{Path, Query, State},
     response::{IntoResponse, Response},
@@ -12,7 +10,7 @@ use tokimo_providers::omdb;
 
 use crate::{
     db::entities::{omdb_titles, OmdbTitles},
-    metrics::cache_hit_response,
+    metrics::cache_hit,
     AppError, AppResult, AppState,
 };
 
@@ -31,13 +29,12 @@ fn require_key(state: &AppState) -> AppResult<String> {
 }
 
 async fn get_title(State(state): State<AppState>, Path(imdb_id): Path<String>) -> AppResult<Response> {
-    let started = Instant::now();
     if let Some(row) = OmdbTitles::find_by_id(imdb_id.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "omdb", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     let api_key = require_key(&state)?;

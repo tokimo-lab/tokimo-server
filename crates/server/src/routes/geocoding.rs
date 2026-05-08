@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use axum::{
     extract::{Query, State},
     response::{IntoResponse, Response},
@@ -12,7 +10,7 @@ use tokimo_providers::geocoding;
 
 use crate::{
     db::entities::{geocoding_results, GeocodingResults},
-    metrics::cache_hit_response,
+    metrics::cache_hit,
     AppError, AppResult, AppState,
 };
 
@@ -35,7 +33,6 @@ fn default_count() -> u8 {
 }
 
 async fn get_forward(State(state): State<AppState>, Query(q): Query<ForwardQuery>) -> AppResult<Response> {
-    let started = Instant::now();
     let key = geocoding::forward_cache_key(&q.q, q.lang.as_deref(), q.count);
 
     if let Some(row) = GeocodingResults::find_by_id(key.clone())
@@ -43,7 +40,7 @@ async fn get_forward(State(state): State<AppState>, Query(q): Query<ForwardQuery
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "geocoding", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("geocoding").await?;
@@ -95,7 +92,6 @@ pub struct ReverseQuery {
 }
 
 async fn get_reverse(State(state): State<AppState>, Query(q): Query<ReverseQuery>) -> AppResult<Response> {
-    let started = Instant::now();
     let key = geocoding::reverse_cache_key(q.lat, q.lon, q.lang.as_deref());
 
     if let Some(row) = GeocodingResults::find_by_id(key.clone())
@@ -103,7 +99,7 @@ async fn get_reverse(State(state): State<AppState>, Query(q): Query<ReverseQuery
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "geocoding", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("geocoding").await?;

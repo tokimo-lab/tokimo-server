@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use axum::{
     extract::{Path, Query, State},
     response::{IntoResponse, Response},
@@ -12,7 +10,7 @@ use tokimo_providers::douban;
 
 use crate::{
     db::entities::{douban_subjects, DoubanSubjects},
-    metrics::cache_hit_response,
+    metrics::cache_hit,
     AppError, AppResult, AppState,
 };
 
@@ -23,13 +21,12 @@ pub fn routes() -> Router<AppState> {
 }
 
 async fn get_subject(State(state): State<AppState>, Path(id): Path<String>) -> AppResult<Response> {
-    let started = Instant::now();
     if let Some(row) = DoubanSubjects::find_by_id(id.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "douban", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("douban").await?;

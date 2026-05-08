@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use axum::{
     extract::{Path, Query, State},
     response::{IntoResponse, Response},
@@ -12,7 +10,7 @@ use tokimo_providers::github_releases;
 
 use crate::{
     db::entities::{github_releases as github_releases_entity, GithubReleases},
-    metrics::cache_hit_response,
+    metrics::cache_hit,
     AppError, AppResult, AppState,
 };
 
@@ -23,7 +21,6 @@ pub fn routes() -> Router<AppState> {
 }
 
 async fn get_latest(State(state): State<AppState>, Path((owner, repo)): Path<(String, String)>) -> AppResult<Response> {
-    let started = Instant::now();
     let key = format!("{}/{}/latest", owner, repo);
 
     if let Some(row) = GithubReleases::find_by_id(key.clone())
@@ -31,7 +28,7 @@ async fn get_latest(State(state): State<AppState>, Path((owner, repo)): Path<(St
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(cache_hit_response(&state, "github", started, Json(row.raw_json)));
+        return Ok(cache_hit(Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("github").await?;
