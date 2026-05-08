@@ -1,6 +1,7 @@
 pub mod admin;
 pub mod assrt;
 pub mod bangumi;
+pub mod currency;
 pub mod deezer;
 pub mod douban;
 pub mod fanart;
@@ -39,6 +40,7 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/omdb", provider_routes(omdb::routes(), &state))
         .nest("/thetvdb", provider_routes(thetvdb::routes(), &state))
         .nest("/bangumi", provider_routes(bangumi::routes(), &state))
+        .nest("/currency", provider_routes(currency::routes(), &state))
         .nest("/fanart", provider_routes(fanart::routes(), &state))
         .nest("/douban", provider_routes(douban::routes(), &state))
         .nest("/hot", provider_routes(hot::routes(), &state))

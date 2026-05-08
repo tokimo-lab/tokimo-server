@@ -80,6 +80,15 @@ const PROVIDERS: ProviderRow[] = [
     envVars: [],
   },
   {
+    key: "currency",
+    provider: "Currency Rates",
+    prefix: "/api/currency/rates",
+    sample: "/api/currency/rates?targets=CNY,EUR,JPY",
+    rateLimit: "10/s",
+    authRequired: "yes",
+    envVars: [],
+  },
+  {
     key: "spotify",
     provider: "Spotify",
     prefix: "/api/spotify/...",

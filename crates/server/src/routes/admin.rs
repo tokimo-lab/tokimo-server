@@ -11,9 +11,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     db::entities::{
-        service_keys, AssrtSearches, AssrtSubDetails, BangumiSubjects, CacheEntries, DeezerAlbums, DeezerArtists,
-        DeezerTracks, DoubanSubjects, FanartAssets, GeocodingResults, GithubReleases, HolidayYears, LrclibLyrics,
-        MusicbrainzArtists, MusicbrainzRecordings, MusicbrainzReleases, NominatimGeocode, OmdbTitles,
+        service_keys, AssrtSearches, AssrtSubDetails, BangumiSubjects, CacheEntries, CurrencyRates, DeezerAlbums,
+        DeezerArtists, DeezerTracks, DoubanSubjects, FanartAssets, GeocodingResults, GithubReleases, HolidayYears,
+        LrclibLyrics, MusicbrainzArtists, MusicbrainzRecordings, MusicbrainzReleases, NominatimGeocode, OmdbTitles,
         OpenmeteoForecasts, QidianBooks, ServiceKeys, SpotifyAlbums, SpotifyArtists, SpotifyTracks, ThetvdbEpisodes,
         ThetvdbSeries, TmdbImages, TmdbMovies, TmdbObjects, WikipediaSummaries,
     },
@@ -219,7 +219,7 @@ async fn dashboard_overview(State(state): State<AppState>) -> AppResult<Json<Das
 
     Ok(Json(DashboardOverviewResponse {
         total_keys: total_service_keys,
-        total_providers: 20,
+        total_providers: 21,
         cache_entries_total: total_cache_entries,
         calls_24h: overview.calls_24h,
         errors_24h: overview.errors_24h,
@@ -320,6 +320,12 @@ const CACHE_TABLES: &[CacheTableInfo] = &[
         pk_cols: &["id"],
         has_raw_json: true,
         default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
+    },
+    CacheTableInfo {
+        name: "currency_rates",
+        pk_cols: &["base", "targets_csv", "days"],
+        has_raw_json: true,
+        default_ttl_seconds: 4 * 60 * 60,
     },
     CacheTableInfo {
         name: "deezer_albums",
@@ -501,6 +507,7 @@ async fn cache_tables(State(state): State<AppState>) -> AppResult<Json<Vec<Cache
             "assrt_searches" => count_table!(AssrtSearches),
             "assrt_sub_details" => count_table!(AssrtSubDetails),
             "bangumi_subjects" => count_table!(BangumiSubjects),
+            "currency_rates" => count_table!(CurrencyRates),
             "deezer_albums" => count_table!(DeezerAlbums),
             "deezer_artists" => count_table!(DeezerArtists),
             "deezer_tracks" => count_table!(DeezerTracks),
@@ -628,6 +635,7 @@ async fn cache_rows_as_json(
             BangumiSubjects,
             crate::db::entities::bangumi_subjects::Column::FetchedAt
         ),
+        "currency_rates" => list_entity!(CurrencyRates, crate::db::entities::currency_rates::Column::FetchedAt),
         "deezer_albums" => list_entity!(DeezerAlbums, crate::db::entities::deezer_albums::Column::FetchedAt),
         "deezer_artists" => list_entity!(DeezerArtists, crate::db::entities::deezer_artists::Column::FetchedAt),
         "deezer_tracks" => list_entity!(DeezerTracks, crate::db::entities::deezer_tracks::Column::FetchedAt),
@@ -730,6 +738,16 @@ async fn cache_delete(
         "assrt_searches" => del_str!(AssrtSearches),
         "assrt_sub_details" => del_str!(AssrtSubDetails),
         "bangumi_subjects" => del_i64!(BangumiSubjects),
+        "currency_rates" => {
+            let days: i32 = pv[2]
+                .parse()
+                .map_err(|_| AppError::BadRequest(format!("Invalid id: {}", pv[2])))?;
+            CurrencyRates::delete_by_id((pv[0].clone(), pv[1].clone(), days))
+                .exec(&state.db)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?
+                .rows_affected
+        }
         "deezer_albums" => del_i64!(DeezerAlbums),
         "deezer_artists" => del_i64!(DeezerArtists),
         "deezer_tracks" => del_i64!(DeezerTracks),
@@ -806,11 +824,11 @@ async fn cache_refresh(
     Path((table, id)): Path<(String, String)>,
 ) -> AppResult<Json<serde_json::Value>> {
     use crate::db::entities::{
-        assrt_searches, assrt_sub_details, bangumi_subjects, deezer_albums, deezer_artists, deezer_tracks,
-        douban_subjects, fanart_assets, geocoding_results, github_releases, holiday_years, lrclib_lyrics,
-        musicbrainz_artists, musicbrainz_recordings, musicbrainz_releases, nominatim_geocode, omdb_titles,
-        openmeteo_forecasts, qidian_books, spotify_albums, spotify_artists, spotify_tracks, thetvdb_episodes,
-        thetvdb_series, tmdb_images, tmdb_movies, tmdb_objects, wikipedia_summaries,
+        assrt_searches, assrt_sub_details, bangumi_subjects, currency_rates, deezer_albums, deezer_artists,
+        deezer_tracks, douban_subjects, fanart_assets, geocoding_results, github_releases, holiday_years,
+        lrclib_lyrics, musicbrainz_artists, musicbrainz_recordings, musicbrainz_releases, nominatim_geocode,
+        omdb_titles, openmeteo_forecasts, qidian_books, spotify_albums, spotify_artists, spotify_tracks,
+        thetvdb_episodes, thetvdb_series, tmdb_images, tmdb_movies, tmdb_objects, wikipedia_summaries,
     };
 
     let table_info = cache_table_info(&table)?;
@@ -870,6 +888,21 @@ async fn cache_refresh(
         "assrt_searches" => refresh_str!(AssrtSearches, assrt_searches::ActiveModel),
         "assrt_sub_details" => refresh_str!(AssrtSubDetails, assrt_sub_details::ActiveModel),
         "bangumi_subjects" => refresh_i64!(BangumiSubjects, bangumi_subjects::ActiveModel),
+        "currency_rates" => {
+            let days: i32 = pv[2]
+                .parse()
+                .map_err(|_| AppError::BadRequest(format!("Invalid id: {}", pv[2])))?;
+            let model = CurrencyRates::find_by_id((pv[0].clone(), pv[1].clone(), days))
+                .one(&state.db)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?
+                .ok_or(AppError::NotFound)?;
+            let mut am: currency_rates::ActiveModel = model.into();
+            am.fetched_at = Set(epoch);
+            am.update(&state.db)
+                .await
+                .map_err(|e| AppError::Internal(e.to_string()))?;
+        }
         "deezer_albums" => refresh_i64!(DeezerAlbums, deezer_albums::ActiveModel),
         "deezer_artists" => refresh_i64!(DeezerArtists, deezer_artists::ActiveModel),
         "deezer_tracks" => refresh_i64!(DeezerTracks, deezer_tracks::ActiveModel),

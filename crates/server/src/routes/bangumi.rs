@@ -25,9 +25,7 @@ fn require_user_agent(state: &AppState) -> AppResult<String> {
         .config
         .bangumi_user_agent
         .clone()
-        .unwrap_or_else(|| {
-            "tokimo-server/1.0 (https://github.com/tokimo-lab/tokimo-server)".to_string()
-        }))
+        .unwrap_or_else(|| "tokimo-server/1.0 (https://github.com/tokimo-lab/tokimo-server)".to_string()))
 }
 
 async fn get_subject(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Json<serde_json::Value>> {

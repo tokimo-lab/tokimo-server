@@ -34,6 +34,8 @@ impl IntoResponse for AppError {
                 match e {
                     tokimo_core::CoreError::NotFound => (StatusCode::NOT_FOUND, "Resource not found".to_string()),
                     tokimo_core::CoreError::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "Rate limited".to_string()),
+                    tokimo_core::CoreError::Provider(message) => (StatusCode::BAD_GATEWAY, message),
+                    tokimo_core::CoreError::Upstream(err) => (StatusCode::BAD_GATEWAY, err.to_string()),
                     _ => (StatusCode::INTERNAL_SERVER_ERROR, "Internal server error".to_string()),
                 }
             }
