@@ -224,6 +224,15 @@ const ENDPOINTS = [
       return `/api/bing/wallpaper?mkt=${pick(mkts)}&n=${n}&idx=${idx}`;
     },
   },
+  {
+    name: "opensubtitles.search",
+    repeat: [
+      "/api/opensubtitles/search?imdb_id=tt1375666&languages=en",
+      "/api/opensubtitles/search?query=Inception&languages=en,zh-cn",
+    ],
+    unique: () =>
+      `/api/opensubtitles/search?imdb_id=tt${String(Math.floor(Math.random() * 9999999)).padStart(7, "0")}&languages=en`,
+  },
 ];
 
 // ---------------------------------------------------------------------------

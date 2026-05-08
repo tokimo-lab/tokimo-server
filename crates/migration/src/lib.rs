@@ -33,6 +33,7 @@ mod m20250101_000050_create_currency_rates;
 mod m20250101_000060_create_hitokoto_cache;
 mod m20250101_000061_create_zenquotes_cache;
 mod m20250101_000062_create_bing_wallpaper_cache;
+mod m20250101_000063_create_opensubtitles_cache;
 
 pub struct Migrator;
 
@@ -73,6 +74,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250101_000060_create_hitokoto_cache::Migration),
             Box::new(m20250101_000061_create_zenquotes_cache::Migration),
             Box::new(m20250101_000062_create_bing_wallpaper_cache::Migration),
+            Box::new(m20250101_000063_create_opensubtitles_cache::Migration),
         ]
     }
 }

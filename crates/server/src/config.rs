@@ -16,6 +16,7 @@ pub struct AppConfig {
     pub musicbrainz_user_agent: Option<String>,
     pub nominatim_user_agent: Option<String>,
     pub assrt_api_key: Option<String>,
+    pub opensubtitles_api_key: Option<String>,
     pub github_token: Option<String>,
     pub cors_allowed_origins: Vec<String>,
     pub storage_backend: String,
@@ -41,6 +42,7 @@ impl AppConfig {
             musicbrainz_user_agent: std::env::var("MUSICBRAINZ_USER_AGENT").ok(),
             nominatim_user_agent: std::env::var("NOMINATIM_USER_AGENT").ok(),
             assrt_api_key: std::env::var("ASSRT_API_KEY").ok(),
+            opensubtitles_api_key: std::env::var("OPENSUBTITLES_API_KEY").ok(),
             github_token: std::env::var("GITHUB_TOKEN").ok(),
             cors_allowed_origins: std::env::var("SERVER_CORS_ALLOWED_ORIGINS")
                 .unwrap_or_default()

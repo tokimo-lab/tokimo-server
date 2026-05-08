@@ -242,6 +242,15 @@ const PROVIDERS: ProviderRow[] = [
     authRequired: "no",
     envVars: [],
   },
+  {
+    key: "opensubtitles",
+    provider: "OpenSubtitles",
+    prefix: "/api/opensubtitles/search",
+    sample: "/api/opensubtitles/search?imdb_id=tt1375666&languages=en,zh-cn",
+    rateLimit: "10/s",
+    authRequired: "yes",
+    envVars: ["OPENSUBTITLES_API_KEY"],
+  },
 ];
 
 interface FetchResult {

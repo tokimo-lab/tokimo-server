@@ -16,6 +16,7 @@ pub mod musicbrainz;
 pub mod nominatim;
 pub mod omdb;
 pub mod openmeteo;
+pub mod opensubtitles;
 pub mod qidian;
 pub mod sports;
 pub mod spotify;
@@ -63,6 +64,7 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/hitokoto", provider_routes(hitokoto::routes(), &state))
         .nest("/zenquotes", provider_routes(zenquotes::routes(), &state))
         .nest("/bing", provider_routes(bing_wallpaper::routes(), &state))
+        .nest("/opensubtitles", provider_routes(opensubtitles::routes(), &state))
         .fallback(api_not_found)
         .layer(middleware::from_fn_with_state(state.clone(), record_metrics))
         .with_state(state)
