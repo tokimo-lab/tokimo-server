@@ -237,9 +237,7 @@ function PanelInner(): ReactNode {
     [registered],
   );
   const selected =
-    (selectedId ? registered.get(selectedId) : undefined) ??
-    items[0] ??
-    null;
+    (selectedId ? registered.get(selectedId) : undefined) ?? items[0] ?? null;
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-zinc-300 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-950">

@@ -250,128 +250,280 @@ const en = {
     dashboard: {
       title: "Dashboard",
       summary:
-        "Live operational view of the upstream proxy: aggregated request volume, error rates, latency percentiles and provider breakdown over the selected time range.",
+        "Live operational dashboard for the proxy: aggregated request volume, error rates, latency percentiles, status-code mix and per-provider traffic over the selected time window. All data comes from `/api/admin/dashboard/*` endpoints; the server does the rollup, the admin UI never re-aggregates raw rows.",
       sections: {
         overview: {
           title: "Overview",
-          body: "The dashboard aggregates metrics across **all configured providers** and renders them as time series, heatmaps and rings. Data is pulled from `dashboard_*` endpoints and cached on the client for 15s. Use the range switch to scope every panel simultaneously — there is no per-card time control by design.",
+          body: "The page has three layers: **global controls** at the top (range / auto-refresh / manual refresh), **9 draggable chart cards** in the middle, and a **Recent Errors** table at the bottom. Card order and the auto-refresh interval are persisted in localStorage (`tokimo-admin-dashboard-order-v1` / `-refresh-interval-v1`) and survive reloads.\n\n**Every chart is driven by the top-level range** — there is no per-card time control by design, so axes always line up.",
         },
-        metrics: {
-          title: "Metrics",
-          body: "Each chart maps directly to a backend rollup:\n\n- **Activity Ring** — success vs error count for the range\n- **Timeseries** — bucketed request volume\n- **Latency** — p50 / p95 / p99 derived from per-request samples\n- **Heatmap** — hour × day error density\n- **Provider column** — top-N providers by traffic\n\nAll metrics are computed by the server; the admin UI never re-aggregates raw rows.",
+        layout: {
+          title: "Card layout",
+          body: "On lg screens (≥1024px) the 9 cards render in a 3-column grid, with **Request Volume** spanning 2 columns. The 6-dot drag handle in each card's top-left lets you reorder; the new order is written to localStorage immediately.\n\nCard state machine: **loading** (skeleton) → **error** (with Retry) → **empty** (placeholder) → **rendered**.",
         },
         refresh: {
           title: "Refresh & cache",
-          body: "React Query polls each panel every 30s with `staleTime` 15s. The **Refresh** button forces a `refetch` on every visible card. There is also a hidden debug action (5 fast clicks on the title) that lets ops clear the rollup window — use with care, this resets metrics persistently.",
+          body: "**Auto-refresh** uses React Query's `refetchInterval`. Choices: 0 (Off) / 10s / 30s / 60s, default 30s.\n**Manual refresh**: the spinning circular button on the top-right calls `refetch()` on every visible card simultaneously and keeps spinning while any query is in flight.\n**staleTime**: dashboard queries leave React Query at default (0), so each `refetch` always hits the network.",
+        },
+        backdoor: {
+          title: "Hidden debug entry",
+          body: "**Five rapid clicks on the sidebar logo** open a hidden “Clear metrics” dialog (`backdoor.title`). It can wipe metric rollups by window (1h / 24h / 7d / all / custom). It **permanently resets metrics** — debugging only, not for casual use in production.",
         },
       },
       fields: {
-        range: {
-          label: "range",
-          desc: "Selected time window. Drives the `range` query parameter sent to every dashboard endpoint. Allowed values: `1h`, `24h`, `7d`.",
+        "control-range": {
+          label: "Range (1h / 24h / 7d)",
+          desc: "Selects the aggregation window for the entire page. **Bucket sizes are inferred**: 1h → 5-minute buckets; 24h → 1-hour buckets; 7d → 1-day buckets. The value is sent as `range_secs` and `bucket_secs` to every dashboard endpoint. Switching range cancels in-flight queries and re-fetches.",
         },
-        interval: {
-          label: "bucket",
-          desc: "Server-side bucket size (seconds) inferred from the range. Not user-controllable; charts read this from the API response so x-axis ticks always align.",
+        "control-refresh-interval": {
+          label: "Auto-refresh (Off / 10s / 30s / 60s)",
+          desc: "Sets React Query's `refetchInterval`. `Off` means no polling — only range changes / manual refresh fetch. Persisted to localStorage `tokimo-admin-dashboard-refresh-interval-v1`.\n\nNote: auto-refetch only fires when the tab is foregrounded (React Query default `refetchIntervalInBackground: false`).",
+        },
+        "control-refresh-now": {
+          label: "Refresh now (spinning icon button)",
+          desc: "Forces every dashboard query on the page to `refetch()`, ignoring `staleTime`. The icon spins as long as any query is in `fetching` state.",
+        },
+        "card-volume": {
+          label: "Request Volume",
+          desc: "Time-series line chart, X = bucketed time, Y = request count. Two series: **calls** (success + error combined) and **errors**. The card title shows the **total calls in range**.\n\nSource: `GET /api/admin/dashboard/timeseries?range_secs=...&bucket_secs=...`. This card is 2 columns wide.",
+        },
+        "card-cache-ring": {
+          label: "Cache Hit (activity ring)",
+          desc: "Ring + central percentage showing the **last 24h** overall cache hit ratio (not affected by the top-level range). Value comes from `dashboard/overview.cache_hit_ratio_24h`, range 0..1.\n\n“Hit” is determined by the response header `x-cache: HIT`, stamped by the proxy when serving a cached response.",
+        },
+        "card-top-providers": {
+          label: "Top Providers (pie)",
+          desc: "Pie chart of the top-N providers by call count. **N = 10**; everything beyond rank 10 is collapsed into an “Other” slice. We picked 10 (rather than 5) so the long tail isn't all dumped into Other and lose its shape.\n\nSource: `dashboard/by-provider`, sorted by `calls` descending within the selected range.",
+        },
+        "card-by-provider": {
+          label: "Provider Calls (column)",
+          desc: "Vertical column chart listing **every** provider's total call count in the range. The card title shows the count of bars (= active providers). Shares the `dashboard/by-provider` payload with the pie but **does not truncate** — useful for spotting tail-end traffic.",
+        },
+        "card-latency": {
+          label: "Latency p50 / p95",
+          desc: "Two lines: **p50** (median) and **p95** (95th percentile), unit ms. Computed per bucket from per-request timing samples (success + error included). The card title shows the **latest bucket's p95**, the subtitle the latest bucket's p50.\n\nSource: same `dashboard/timeseries` payload (`p50_ms` / `p95_ms` per point).",
+        },
+        "card-errors-area": {
+          label: "Errors Trend (area)",
+          desc: "Area chart of `errors` only (4xx + 5xx combined) over time. Same series as the `errors` line in Volume — but isolated so an error spike's shape is obvious. The card title shows total errors in range.",
+        },
+        "card-heatmap": {
+          label: "Provider × Time (heatmap)",
+          desc: "2D heatmap: Y axis = provider, X axis = time bucket, cell colour = call count for that (provider, bucket). Useful for spotting “provider X spiked at hour Y”.\n\nSource: `dashboard/heatmap?range_secs=...&bucket_secs=...`. Payload is `[{ ts, values: [{ provider, calls }] }]`.",
+        },
+        "card-status-codes": {
+          label: "Status Codes (stacked column)",
+          desc: "Stacked bars per bucket with three segments: **2xx** (success, green) / **4xx** (client error, yellow) / **5xx** (server error, red). The card title shows the sum.\n\nSource: `dashboard/status-codes`. Note: upstream failures like 502/504 are recorded by the proxy as 5xx and merged with upstream-originated 5xx.",
+        },
+        "card-cache-tables": {
+          label: "Cache Tables (list)",
+          desc: "Plain list (not a chart). Shows every `cache_<provider>` table sorted by row count, with row count and average remaining TTL. Clicking does **not** navigate — this is a status display; perform actions in the Cache Inspector page.\n\nSource: `/api/admin/cache/tables`, same as the table dropdown on the Cache Inspector page.",
+        },
+        "recent-errors-table": {
+          label: "Recent Errors (table)",
+          desc: "Bottom table listing the most recent failing requests. **Hard-capped at 50 rows** (server-side), most recent first.\n\nColumns: **Time** (relative, e.g. “3m ago”) / **Provider** / **Status** (HTTP code, e.g. 502) / **Duration** (ms).\n\nSource: `dashboard/recent-errors`. Retention is governed by the metrics rollup config; older entries are pruned.",
         },
       },
     },
     "provider-configs": {
       title: "Provider Configs",
       summary:
-        "Read-only inventory of upstream API providers wired into the proxy. Lists routing status, observed traffic and a sample request URL for each provider.",
+        "Read-only inventory of every upstream API provider wired into this proxy. Shows the route prefix, rate limit, auth requirement and required env vars; combined with the Service Key input below, lets you fire a real proxied request to probe a provider live. Provider definitions are baked into code — they cannot be edited at runtime.",
       sections: {
         overview: {
           title: "Overview",
-          body: "Provider definitions live in code and configuration — they cannot be edited from this page. The table is a **runtime mirror**: it shows whatever the server reports as currently registered, plus 24h traffic counters scraped from the metrics rollup.",
+          body: "The table is rendered from the front-end constant `PROVIDERS` (`admin/src/pages/ProviderConfigsPage.tsx`), kept in sync manually with the backend route registrations. Each row corresponds to one upstream provider proxy.\n\n**Why read-only**: the env vars used for upstream auth (e.g. `TMDB_API_KEY`) are read from the server process at startup. The admin deliberately does not expose whether a given env var is populated — that would leak a side-channel about secret presence. To change provider behaviour, edit `crates/providers/` and `.env`, then **restart the server**.",
         },
-        "sample-url": {
-          title: "Sample URL",
-          body: "Click a row to open the response inspector. The modal replays the **last successful upstream call** (or the most recent failed one, if none succeeded) so you can verify auth headers, response shape, and rate-limit fields without touching production.",
+        "service-key": {
+          title: "Service Key workflow",
+          body: "The top input takes a Bearer service key (format `tks_xxx`). Its value is base64-encoded and stored in `localStorage['tokimo-admin-svc-key']`; **it is never sent to the admin server**. When you click Send on a row:\n\n1. If the key is empty → `ServiceKeyPromptModal` opens to collect one.\n2. The browser directly issues `fetch(sample, { Authorization: 'Bearer ' + key })`.\n3. The response is shown in `ProviderResponseModal`, **not routed through the admin backend**.\n\nWhy a separate key: the admin will not borrow your admin session's privileges to call provider APIs. You explicitly carry your own service-to-service token.",
+        },
+        "response-modal": {
+          title: "Response inspector",
+          body: "The Send-button modal shows: **Status** (HTTP code), **Duration** (`performance.now()` end-to-end including network), **Content-Type**, **Body** (JSON is auto-pretty-printed). The Copy button writes the entire body to the clipboard.\n\nOn failure (CORS / network / timeout), `status` is reported as `0` and the error message is shown separately.",
+        },
+        security: {
+          title: "Security notes",
+          body: "- Service key is base64-encoded, **not encrypted** — anyone with access to the browser's localStorage can read it. Use only on trusted endpoints.\n- The sample request hits the upstream provider for real: it counts toward metrics, consumes API quota and writes the cache.\n- The Clear button only removes the local copy from localStorage. It does **not** revoke the key on the server (revoke from the Service Keys page).",
         },
       },
       fields: {
-        provider: {
-          label: "provider",
-          desc: "Internal provider id (e.g. `tmdb`, `omdb`). Maps to the route prefix `/providers/{id}/...`.",
+        "column-provider": {
+          label: "Provider",
+          desc: "Display name (e.g. `TMDB`, `OMDb`, `Bangumi`). Doubles as a human-readable label for the route namespace — there is no separate Prefix column; the prefix is visible at the start of the Sample URL (e.g. `/api/tmdb/...`).",
         },
-        status: {
-          label: "status",
-          desc: "Routing health derived from the last 5 minutes of traffic. `healthy` = success ratio > 95%; `degraded` = 50–95%; `down` = < 50% or no traffic.",
+        "column-sample-url": {
+          label: "Sample URL",
+          desc: "A hand-picked, callable sample path (e.g. `/api/tmdb/movie/550` for *Fight Club*). **Clicking the cell does not fire the request** — only the right-side Send button does. Hover shows the full URL when truncated.\n\nThe path is processed through `expandSample()` (placeholder substitution etc.) when Send fires; the resulting URL is what actually hits the proxy.",
         },
-        "24h_calls": {
-          label: "24h calls",
-          desc: "Total requests routed to this provider in the last 24 hours, including cache hits and misses.",
+        "column-rate-limit": {
+          label: "Rate Limit",
+          desc: "The proxy's outbound **per-instance token-bucket** limit for this provider (e.g. `10/s`, `1/s`, `30/s`). This is the **proxy-side egress limit** that protects the upstream from abuse — independent of any per-service-key rate limit.\n\nExceeding it returns `429` with a `Retry-After` header. Defined as a Rust constant in `crates/providers/<name>.rs`; the admin only renders the value.",
         },
-        hit_ratio: {
-          label: "hit ratio",
-          desc: "Cache hit percentage in the last 24 hours. Low values usually mean either cold cache or aggressive TTL — cross-check with the Cache Inspector.",
+        "column-auth": {
+          label: "Auth",
+          desc: "Whether **calling this proxy** requires a Bearer service key (NOT whether the upstream needs an API key — that's the next column). Three values:\n\n- `required` (red) — must send `Authorization: Bearer tks_...` or get 401\n- `optional` (yellow) — anonymous works but may be rate-limited harder or return reduced data\n- `none` (green) — fully open, anonymous allowed (e.g. some public-data providers)\n\nWhether the upstream itself needs an API key is reflected by the Env Vars column and is unrelated to this one.",
+        },
+        "column-env-vars": {
+          label: "Env Vars",
+          desc: "The list of process-level environment variables required for upstream authentication (e.g. `TMDB_API_KEY`, or `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET`). **Empty (—)** means the provider needs no upstream credentials (e.g. Douban anonymous public pages).\n\nIf a required env var is missing at startup, calls to that provider return `502 Bad Gateway` with `provider not configured: missing env XXX`. **The admin deliberately does not show whether the env var is populated** — schema only.",
+        },
+        "column-action-send": {
+          label: "Action · Send",
+          desc: "Click Send: takes the service key from the top input (prompts if empty) and issues `fetch(sample, { Authorization: 'Bearer ...' })` directly from the browser, **not via the admin backend**.\n\nUse case: probe a provider without writing a script. Verifies upstream reachable ✅ / service key valid ✅ / scope sufficient ✅ / response shape as expected ✅. Result lands in `ProviderResponseModal`.",
+        },
+        "input-service-key": {
+          label: "Service Key input",
+          desc: "Accepts a `tks_xxx.<sig>` Bearer token. Value is base64-encoded into `localStorage['tokimo-admin-svc-key']` and re-loaded next visit. **Used only to fire test requests on this page** — admin's own auth runs on a separate cookie/JWT path and ignores this value.",
+        },
+        "action-clear-key": {
+          label: "Clear button",
+          desc: "Removes the locally cached service key from localStorage and empties the input. **Does not call the server. Does not revoke the key.** To revoke server-side go to the Service Keys page and delete the entry.",
+        },
+        "response-status": {
+          label: "Response · Status",
+          desc: "HTTP status code shown at the top of the response modal. Common values: `200` ok / `401` invalid service key / `404` no such route / `429` rate-limited / `502` upstream env missing / `0` fetch threw (network / CORS / timeout).",
+        },
+        "response-duration": {
+          label: "Response · Duration",
+          desc: "End-to-end latency measured by `performance.now()` (ms) — from `fetch()` start until the body finishes streaming. Includes browser → proxy → upstream → proxy → browser. **Not the same as upstream latency**; for that, see the dashboard's Latency card.",
+        },
+        "response-content-type": {
+          label: "Response · Content-Type",
+          desc: "Forwarded from the proxy response. If the type is `application/json`-ish, the body is auto-pretty-printed (2-space indent); otherwise shown verbatim.",
+        },
+        "response-body": {
+          label: "Response · Body",
+          desc: "Response payload. JSON is pretty-printed; non-JSON or parse failures are shown as raw text; on fetch errors the thrown error message is displayed instead. The Copy button writes the whole body to the clipboard.",
         },
       },
     },
     "service-keys": {
       title: "Service Keys",
       summary:
-        "Issue, view and revoke long-lived API tokens used by downstream services to call this proxy. Each key carries a fixed scope set and an immutable creation timestamp.",
+        "Issue / list / revoke Bearer tokens used by downstream services to call this proxy. Each key has an immutable creation timestamp and a plaintext token shown **exactly once** — lose it and you must re-issue. This page is the only place in admin that produces a usable service key.",
       sections: {
         overview: {
           title: "Overview",
-          body: "Service keys are JWT-style bearer tokens minted by the admin. They are intended for **server-to-server traffic only**; do not embed them in browser apps. Once a key is created, the raw token is shown **exactly once** — copy it immediately or rotate.",
+          body: "The table lists every issued service key (the plaintext is **not** stored — only the prefix). The “Create service key” button at the top opens a modal to mint a new one; on success the plaintext is rendered once in that same modal. **After you close it the plaintext is gone forever.**\n\nKeys are intended for **server-to-server traffic only** — never embed them in browser apps where end users could exfiltrate them.",
         },
-        "token-format": {
-          title: "Token format",
-          body: "Tokens are signed with the server's HMAC-SHA256 key and use the format `tks_<id>.<sig>`. The `id` segment is the database primary key; the `sig` segment is the HMAC over `{id, scopes, created_at}`. Verification is constant-time.",
+        lifecycle: {
+          title: "Lifecycle",
+          body: "**Create**: admin POSTs to `/api/admin/service-keys`; the server signs `tks_<id>.<sig>` with HMAC-SHA256 and returns the plaintext **only in this response**. The DB only persists `id` and `token_prefix` for audit display — **never** the secret half, in any reversible form.\n\n**Revoke**: the Delete button calls `DELETE /api/admin/service-keys/{id}`. After deletion all subsequent requests using that key get 401; **in-flight requests are not aborted**.",
         },
-        scopes: {
-          title: "Scopes",
-          body: "Every key carries an explicit allowlist of scopes (e.g. `cache:read`, `dashboard:read`, `providers:write`). Scopes are checked at the route guard layer; an empty scope set yields a key that can authenticate but cannot access any resource.",
+        security: {
+          title: "Security notes",
+          body: "- The plaintext is shown once. Closing the modal = permanent loss; **there is no “re-reveal” button anywhere**.\n- The server uses constant-time comparison for verification, no length-leaks.\n- Per-key scope and TTL are **not yet implemented** — every issued key has full provider-call permissions. Issue conservatively.\n- `enabled = false` is a soft revoke supported by the backend, but the admin UI **has no toggle** today — revoke = delete.",
         },
       },
       fields: {
-        token: {
-          label: "token",
-          desc: "Raw bearer string. Only the prefix `tks_<id>` is persisted in the table — the secret half is never stored, so a lost token must be re-issued.",
+        "column-name": {
+          label: "Name",
+          desc: "Human-readable label set at creation (e.g. `media-server-prod`, `my-laptop-dev`). **Identification only**, no auth effect, may collide with another key. Recommend including an env suffix for audit clarity.",
         },
-        created_at: {
-          label: "created_at",
-          desc: "UTC timestamp of issuance. Used for audit and (optionally) for time-bounded expiry policies.",
+        "column-token-prefix": {
+          label: "Prefix",
+          desc: "The first few chars of the plaintext token (typically the `tks_<id>` portion). Used to identify **which key** in logs and lists. The full plaintext is never persisted — by design — so the table can only ever show the prefix.",
         },
-        scopes: {
-          label: "scopes",
-          desc: "Comma-separated permission set. Read by the auth middleware on every request; mismatched scopes return `403 forbidden`.",
+        "column-enabled": {
+          label: "Enabled",
+          desc: "Whether the key is currently usable. Renders as `Yes` / `No`.\n\n**There is no toggle in the admin UI today** — every issued key defaults to `Yes`; the only way to disable is the Delete button (hard revoke). The backend supports `enabled = false` for soft revoke and a UI toggle is planned.",
+        },
+        "column-created": {
+          label: "Created",
+          desc: "UTC ISO-8601 timestamp of issuance. Used for audit; also part of the signed payload (HMAC over `{id, scopes, created_at}`), so it cannot be tampered with after the fact.",
+        },
+        "column-action-delete": {
+          label: "Action · Delete",
+          desc: "Hard-deletes the key. **Effect immediate, not recoverable.** Hits `DELETE /api/admin/service-keys/{id}` directly — no second confirmation. Downstream services will start getting 401 from the next request. To restore access you must re-issue and ship a new token.",
+        },
+        "action-create": {
+          label: "Create service key button",
+          desc: "Opens the create-form modal. Currently the form **only requires `name`** — scope / TTL / notes are not yet implemented. After submission the freshly minted plaintext token is shown inline in the same modal — copy it immediately.",
+        },
+        "form-name": {
+          label: "Form · Name",
+          desc: "Required. Any UTF-8 string; keep below 64 chars or the Prefix column display will be truncated. Persisted on submit and **cannot be renamed afterwards** — to rename you must delete and re-issue.",
+        },
+        "token-reveal": {
+          label: "Plaintext token reveal",
+          desc: "The read-only textarea shown after a successful create, containing the full `tks_<id>.<sig>`. **Shown exactly once.** Closing the modal is permanent — the server never persisted the sig segment. Copy before closing or you have to re-issue.",
         },
       },
     },
     "cache-inspector": {
       title: "Cache Inspector",
       summary:
-        "Inspect the per-provider response cache stored in PostgreSQL. Browse rows, preview raw bodies, force-expire stale entries and delete individual rows for debugging.",
+        "Browse the per-provider response cache stored in PostgreSQL. Preview the first 200 chars of cached bodies, force-expire single rows or hard-delete them. Each `cache_<provider>` table's schema is owned by its Sea-ORM entity.",
       sections: {
         overview: {
           title: "Overview",
-          body: "Each provider has a dedicated cache table named `cache_<provider>`. Rows are keyed by the canonicalised request URL plus query string. The inspector paginates rows server-side at 50 per page and never loads the raw body until you open the preview modal.",
+          body: "The top dropdown picks the **cache table** — one per provider, e.g. `cache_tmdb` / `cache_omdb`. The number in parentheses is the row count. Once a table is selected the paginated grid below loads the first 50 rows, sorted by `fetched_at` descending (newest first).\n\n**Functional v1**: every visible UI element on this page maps to a backend CRUD endpoint. Bulk expiration / pattern-based delete are not exposed in the UI — go straight to the database for those.",
         },
         ttl: {
-          title: "TTL",
-          body: "TTL is **per-provider**, configured at deploy time. The `TTL` column shows the remaining seconds until the row is considered stale. Stale rows are still served if the upstream call fails, so the cache also acts as a soft fallback.",
+          title: "TTL & expiry",
+          body: "TTL is set explicitly by each provider when it writes the cache (no per-row config stored). The “avg remaining TTL” next to the dropdown is the mean across non-expired rows in that table.\n\n**Stale rows are not auto-deleted** — at query time, if `now() > fetched_at + ttl` the row is considered stale and the next request re-fetches upstream; if the upstream call fails, the stale row may still be served as a soft fallback (provider-specific).\n\nForce-expire pulls `fetched_at` far enough into the past that the next request is guaranteed to re-fetch.",
         },
         operations: {
-          title: "Operations",
-          body: "Available actions per row:\n\n- **Refresh** — set `fetched_at` far enough in the past to force the next request to re-fetch upstream\n- **Delete** — drop the row entirely\n- **Preview** — view the cached raw response body in a modal\n\nAll three operations write an audit entry; deletes are not recoverable.",
+          title: "Operations & audit",
+          body: "Three per-row actions:\n\n- **View full** — shows `raw_preview` (first 200 chars) in a modal. The full body is **not** in the list response, and the modal also shows only 200 chars — for the actual full body, query the DB directly (`SELECT raw FROM cache_<provider> WHERE id=...`).\n- **Expire** — hits `POST /api/admin/cache/{table}/{id}/refresh`, which rewinds `fetched_at` far into the past.\n- **Delete** — hits `DELETE /api/admin/cache/{table}/{id}`; the row vanishes (Popconfirm asks once).\n\nAll three write to the admin audit log. **Deletes are not recoverable.**",
+        },
+        limitations: {
+          title: "Known limitations",
+          body: "- “View full” actually shows only the first 200 chars (same `raw_preview` field as the table). The label is mildly misleading — full bodies can be MB-sized and are not appropriate to ship over admin endpoints.\n- The search box is **client-side only** — it filters the currently loaded 50 rows by `id`/`key`/`raw_preview` substring, **not** the backend. Paginating clears the filter visually but state is reset.\n- There are no TTL colour tags. The grid only renders `fetched_at` plus a relative time subtitle; staleness is computed by you (or inferred from the avg-TTL display).",
         },
       },
       fields: {
-        fetched_at: {
-          label: "fetched_at",
-          desc: "UTC timestamp at which the upstream response was written into the cache. The cache age column is computed as `now() - fetched_at`.",
+        "selector-table": {
+          label: "Cache table selector",
+          desc: "Dropdown listing every `cache_*` table. Option label format `name (row_count)`, sourced from `GET /api/admin/cache/tables`. Switching resets pagination to page 1 and re-fetches rows.",
         },
-        ttl_seconds: {
-          label: "ttl_seconds",
-          desc: "Per-row remaining time-to-live in seconds. Negative values indicate a stale row that will be re-fetched on the next miss.",
+        "avg-ttl-display": {
+          label: "Average TTL display",
+          desc: "Muted text next to the dropdown, e.g. “Average TTL remaining: 2d 5h”. Computed as `avg(ttl - (now() - fetched_at))` over non-expired rows.\n\nEmpty table → “No rows”. All-stale → “Expired”. At most 2 unit segments (d+h / h+m / m+s).",
         },
-        key: {
-          label: "key",
-          desc: "Canonical request key. Built from the provider id, route, and query parameters; case-normalised so equivalent requests collapse to the same row.",
+        "input-search": {
+          label: "Search box",
+          desc: "**Pure client-side filter** over the currently loaded 50 rows. Matches case-insensitively against `id`, `key` and `raw_preview` (substring on any). **Does not hit the backend** — paginating means re-typing. Useful for quickly locating a key inside the loaded window.",
+        },
+        "action-refresh-list": {
+          label: "Refresh button",
+          desc: "Re-fetches both the table list and the currently loaded page rows. Use when other writers may have changed the cache out of band. Shows a loading state while a fetch is in flight.",
+        },
+        "column-id": {
+          label: "ID",
+          desc: "Cache row primary key. Pinned column. Typically a hash (truncated SHA256) or a provider-defined stable id. `fixed: left` keeps it visible during horizontal scroll.",
+        },
+        "column-key": {
+          label: "Key",
+          desc: "The canonicalised request key, built from provider id + route + query params with case normalisation (e.g. `tmdb:movie/550?language=zh-CN`). Equivalent requests collapse to the same row. Hover for the full content.",
+        },
+        "column-fetched-at": {
+          label: "Fetched at",
+          desc: "UTC time the upstream response was written to the cache. **Main line** is the absolute time `YYYY-MM-DD HH:mm:ss`; **subtitle** is relative (e.g. “3h ago”). Cache age = `now() - fetched_at`.",
+        },
+        "column-raw-preview": {
+          label: "Raw preview",
+          desc: "The first 200 chars of the cached body (already truncated server-side; the admin endpoint never ships the full body). Rendered with `<code>` + `line-clamp-2` so it stays compact in the grid; click View full for the modal.",
+        },
+        "column-operations": {
+          label: "Operations",
+          desc: "Right-pinned column with three buttons: **View full** / **Expire** / **Delete** (the last has a Popconfirm). See the “Operations & audit” section.",
+        },
+        "action-view-full": {
+          label: "Action · View full",
+          desc: "Opens the preview modal showing `raw_preview` (first 200 chars). The modal carries a hint that the full body must be queried from the DB. **Not literally full** — the label is historical; future revision will rename to “Preview first 200 chars”.",
+        },
+        "action-expire": {
+          label: "Action · Expire",
+          desc: "Hits `POST /api/admin/cache/{table}/{id}/refresh`; the server rewinds `fetched_at` to a very old timestamp (e.g. 1970). **The row is not deleted** — the next matching request misses, re-fetches and overwrites. Use when upstream has been updated but the cache TTL hasn't elapsed.",
+        },
+        "action-delete": {
+          label: "Action · Delete",
+          desc: "Hard-deletes the row. Popconfirm asks once. **Not recoverable**: the next matching request cold-starts (and if upstream is down at that moment, soft-fallback has nothing to fall back to). Use only to clean up genuinely bad data.",
+        },
+        "preview-modal": {
+          label: "Preview modal",
+          desc: "Width 720, shows the first 200 chars of `raw_preview`. Renders inside `<pre>` so newlines are preserved and long lines wrap. Max height 60vh, content scrolls. No copy button — use the browser's native select-and-copy.",
         },
       },
     },

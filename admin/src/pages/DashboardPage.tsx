@@ -865,10 +865,29 @@ function DashboardPage() {
     useMemo(
       () => ({
         id: "dashboard",
-        sections: [{ key: "overview" }, { key: "metrics" }, { key: "refresh" }],
+        sections: [
+          { key: "overview" },
+          { key: "layout" },
+          { key: "refresh" },
+          { key: "backdoor" },
+        ],
         fields: [
-          { key: "range", type: "enum" },
-          { key: "interval", type: "i64" },
+          { key: "control-range", type: "1h | 24h | 7d" },
+          { key: "control-refresh-interval", type: "0 | 10 | 30 | 60 (s)" },
+          { key: "control-refresh-now", type: "button" },
+          { key: "card-volume", type: "line · time-series" },
+          { key: "card-cache-ring", type: "ring · 24h ratio" },
+          { key: "card-top-providers", type: "pie · top-10" },
+          { key: "card-by-provider", type: "column · all providers" },
+          { key: "card-latency", type: "line · p50 / p95" },
+          { key: "card-errors-area", type: "area · errors only" },
+          { key: "card-heatmap", type: "heatmap · provider × time" },
+          {
+            key: "card-status-codes",
+            type: "stacked column · 2xx / 4xx / 5xx",
+          },
+          { key: "card-cache-tables", type: "list · cache_<provider>" },
+          { key: "recent-errors-table", type: "table · ≤ 50 rows" },
         ],
         anchorRef: containerRef,
       }),
