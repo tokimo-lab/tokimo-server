@@ -2,6 +2,7 @@ pub mod assrt;
 pub mod baidu_hot;
 pub mod baidu_sports;
 pub mod bangumi;
+pub mod bing_wallpaper;
 pub mod common;
 pub mod currency;
 pub mod deezer;

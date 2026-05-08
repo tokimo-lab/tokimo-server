@@ -1,6 +1,7 @@
 pub mod admin;
 pub mod assrt;
 pub mod bangumi;
+pub mod bing_wallpaper;
 pub mod currency;
 pub mod deezer;
 pub mod douban;
@@ -61,6 +62,7 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/github", provider_routes(github::routes(), &state))
         .nest("/hitokoto", provider_routes(hitokoto::routes(), &state))
         .nest("/zenquotes", provider_routes(zenquotes::routes(), &state))
+        .nest("/bing", provider_routes(bing_wallpaper::routes(), &state))
         .fallback(api_not_found)
         .layer(middleware::from_fn_with_state(state.clone(), record_metrics))
         .with_state(state)

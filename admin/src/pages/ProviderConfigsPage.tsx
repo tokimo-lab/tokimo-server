@@ -233,6 +233,15 @@ const PROVIDERS: ProviderRow[] = [
     authRequired: "no",
     envVars: [],
   },
+  {
+    key: "bing",
+    provider: "Bing Daily Wallpaper",
+    prefix: "/api/bing/wallpaper",
+    sample: "/api/bing/wallpaper?mkt=zh-CN&n=1&idx=0",
+    rateLimit: "10/s",
+    authRequired: "no",
+    envVars: [],
+  },
 ];
 
 interface FetchResult {

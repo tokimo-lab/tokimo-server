@@ -210,6 +210,20 @@ const ENDPOINTS = [
     repeat: ["/api/zenquotes/random"],
     unique: () => "/api/zenquotes/random",
   },
+  {
+    name: "bing.wallpaper",
+    repeat: [
+      "/api/bing/wallpaper?mkt=zh-CN&n=1&idx=0",
+      "/api/bing/wallpaper?mkt=en-US&n=1&idx=0",
+      "/api/bing/wallpaper?mkt=ja-JP&n=4&idx=0",
+    ],
+    unique: () => {
+      const mkts = ["zh-CN", "en-US", "ja-JP"];
+      const idx = Math.floor(Math.random() * 8);
+      const n = 1 + Math.floor(Math.random() * 4);
+      return `/api/bing/wallpaper?mkt=${pick(mkts)}&n=${n}&idx=${idx}`;
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
