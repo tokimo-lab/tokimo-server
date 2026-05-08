@@ -115,6 +115,27 @@ impl MetricsStore {
         samples.push_back(sample);
     }
 
+    /// Remove samples whose `ts_unix` falls inside the inclusive
+    /// `[since_unix, until_unix]` window. `None` means unbounded on that side
+    /// (so `clear_in_range(None, None)` empties the entire ring). Returns
+    /// the number of samples removed. All work happens in a single critical
+    /// section to keep readers consistent.
+    pub fn clear_in_range(&self, since_unix: Option<i64>, until_unix: Option<i64>) -> usize {
+        let mut samples = self.inner.write().unwrap_or_else(|err| err.into_inner());
+        let before = samples.len();
+        match (since_unix, until_unix) {
+            (None, None) => samples.clear(),
+            (since, until) => {
+                samples.retain(|sample| {
+                    let ts = sample.ts_unix;
+                    let in_window = since.is_none_or(|s| ts >= s) && until.is_none_or(|u| ts <= u);
+                    !in_window
+                });
+            }
+        }
+        before - samples.len()
+    }
+
     pub fn overview_stats_24h(&self) -> OverviewStats {
         let start = now_unix() - 24 * 60 * 60;
         let samples = self.inner.read().unwrap_or_else(|err| err.into_inner());
@@ -413,6 +434,41 @@ mod tests {
             assert_ne!(cell.provider, "provider_01");
         }
         assert_eq!(resp.buckets[0].values.len(), 10);
+    }
+
+    #[test]
+    fn test_clear_in_range_bounds() {
+        let store = MetricsStore::new();
+        // ts offsets: -100, -50, -10, 0
+        for offset in [-100i64, -50, -10, 0] {
+            store.record(sample("p", 200, 1, false, offset));
+        }
+        let now = now_unix();
+
+        // clear since now-30 (keeps offsets -100, -50; removes -10, 0) -> 2 removed
+        let removed = store.clear_in_range(Some(now - 30), None);
+        assert_eq!(removed, 2);
+
+        // clear until now-75 (keeps -50, removes -100) -> 1 removed
+        let removed = store.clear_in_range(None, Some(now - 75));
+        assert_eq!(removed, 1);
+
+        // remaining: offset -50. clear all
+        let removed = store.clear_in_range(None, None);
+        assert_eq!(removed, 1);
+        assert_eq!(store.query_recent_errors(10).len(), 0);
+    }
+
+    #[test]
+    fn test_clear_in_range_window() {
+        let store = MetricsStore::new();
+        for offset in [-100i64, -50, -25, -10, 0] {
+            store.record(sample("p", 200, 1, false, offset));
+        }
+        let now = now_unix();
+        // clear inclusive window [-60, -20] -> matches offsets -50, -25 (2)
+        let removed = store.clear_in_range(Some(now - 60), Some(now - 20));
+        assert_eq!(removed, 2);
     }
 
     #[test]

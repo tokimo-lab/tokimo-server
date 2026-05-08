@@ -261,3 +261,26 @@ export async function getDashboardStatusCodes(
 
   return res.json();
 }
+
+export interface ClearDashboardMetricsResponse {
+  cleared_buckets: number;
+  since_ts_ms?: number;
+  until_ts_ms?: number;
+}
+
+export async function clearDashboardMetrics(params: {
+  since_ts_ms?: number;
+  until_ts_ms?: number;
+}): Promise<ClearDashboardMetricsResponse> {
+  const res = await fetch(`${API_BASE}/admin/dashboard/clear-metrics`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(params),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to clear dashboard metrics");
+  }
+
+  return res.json();
+}

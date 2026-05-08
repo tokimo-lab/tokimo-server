@@ -221,6 +221,20 @@ const zh: Resources = {
       deleted: "缓存已删除",
     },
   },
+  backdoor: {
+    toast: "再点 {{remaining}} 次开启清除工具",
+    title: "清除统计 (Debug)",
+    range: {
+      "1h": "最近 1 小时",
+      "24h": "最近 24 小时",
+      "7d": "最近 7 天",
+      all: "全部",
+      custom: "自定义",
+    },
+    confirm: "清除",
+    cancel: "取消",
+    success: "已清除 {{count}} 条记录",
+  },
 };
 
 export default zh;

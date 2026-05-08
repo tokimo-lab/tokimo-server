@@ -35,6 +35,7 @@ pub fn protected_routes() -> Router<AppState> {
         .route("/dashboard/recent-errors", get(dashboard_recent_errors))
         .route("/dashboard/heatmap", get(dashboard_heatmap))
         .route("/dashboard/status-codes", get(dashboard_status_codes))
+        .route("/dashboard/clear-metrics", post(dashboard_clear_metrics))
         .route("/cache", get(list_cache))
         .route("/cache/tables", get(cache_tables))
         .route("/cache/:table", get(cache_list))
@@ -302,6 +303,39 @@ async fn dashboard_status_codes(
 ) -> AppResult<Json<Vec<crate::metrics::StatusCodeBucket>>> {
     let (range_secs, bucket_secs) = validate_range_bucket(&query)?;
     Ok(Json(state.metrics.query_status_codes(range_secs, bucket_secs)))
+}
+
+#[derive(Deserialize, Default)]
+struct ClearMetricsRequest {
+    since_ts_ms: Option<i64>,
+    until_ts_ms: Option<i64>,
+}
+
+#[derive(Serialize)]
+struct ClearMetricsResponse {
+    cleared_buckets: usize,
+    since_ts_ms: Option<i64>,
+    until_ts_ms: Option<i64>,
+}
+
+async fn dashboard_clear_metrics(
+    State(state): State<AppState>,
+    payload: Option<Json<ClearMetricsRequest>>,
+) -> AppResult<Json<ClearMetricsResponse>> {
+    let req = payload.map(|p| p.0).unwrap_or_default();
+    if let (Some(since), Some(until)) = (req.since_ts_ms, req.until_ts_ms) {
+        if since > until {
+            return Err(AppError::BadRequest("since_ts_ms must be <= until_ts_ms".to_string()));
+        }
+    }
+    let since_secs = req.since_ts_ms.map(|ms| ms / 1000);
+    let until_secs = req.until_ts_ms.map(|ms| ms / 1000);
+    let cleared = state.metrics.clear_in_range(since_secs, until_secs);
+    Ok(Json(ClearMetricsResponse {
+        cleared_buckets: cleared,
+        since_ts_ms: req.since_ts_ms,
+        until_ts_ms: req.until_ts_ms,
+    }))
 }
 
 fn parse_duration_secs(value: &str) -> Result<i64, AppError> {

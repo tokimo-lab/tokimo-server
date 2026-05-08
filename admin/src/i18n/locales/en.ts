@@ -221,6 +221,20 @@ const en = {
       deleted: "Cache row deleted",
     },
   },
+  backdoor: {
+    toast: "Tap {{remaining}} more time(s) to unlock metrics tools",
+    title: "Clear metrics (Debug)",
+    range: {
+      "1h": "Last 1 hour",
+      "24h": "Last 24 hours",
+      "7d": "Last 7 days",
+      all: "All",
+      custom: "Custom",
+    },
+    confirm: "Clear",
+    cancel: "Cancel",
+    success: "Cleared {{count}} records",
+  },
 };
 
 export default en;
