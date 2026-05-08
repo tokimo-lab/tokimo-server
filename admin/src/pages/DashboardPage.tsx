@@ -483,18 +483,6 @@ function DashboardPage() {
             value={formatNumber(totalCallsInRange)}
             hint={t("dashboard.charts.heroCalls")}
             dragHandleProps={handleProps}
-            trailing={
-              <Segmented
-                size="small"
-                value={range}
-                onChange={(v) => setRange(v as RangeKey)}
-                options={[
-                  { label: t("dashboard.range.1h"), value: "1h" },
-                  { label: t("dashboard.range.24h"), value: "24h" },
-                  { label: t("dashboard.range.7d"), value: "7d" },
-                ]}
-              />
-            }
           >
             {timeseriesQuery.isError ? (
               <ChartError
@@ -742,6 +730,7 @@ function DashboardPage() {
             value={formatNumber(totalCacheRows)}
             hint={t("dashboard.charts.rows")}
             dragHandleProps={handleProps}
+            bodyClassName="max-h-[260px] overflow-y-auto"
           >
             {cacheTablesQuery.isError ? (
               <ChartError
@@ -753,14 +742,14 @@ function DashboardPage() {
             ) : cacheTables.length === 0 ? (
               <EmptyChart />
             ) : (
-              <ul className="flex flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
+              <ul className="flex flex-1 flex-col gap-1.5 pr-1">
                 {cacheTables
                   .slice()
                   .sort((a, b) => b.row_count - a.row_count)
                   .map((tbl) => (
                     <li
                       key={tbl.name}
-                      className="flex items-center justify-between rounded-lg px-2 py-1.5 text-xs hover:bg-fill-tertiary-light dark:hover:bg-fill-tertiary-dark"
+                      className="flex h-8 shrink-0 items-center justify-between rounded-lg px-2 text-xs hover:bg-fill-tertiary-light dark:hover:bg-fill-tertiary-dark"
                     >
                       <span className="truncate font-mono text-fg-light dark:text-fg-dark">
                         {tbl.name}
@@ -820,6 +809,15 @@ function DashboardPage() {
         >
           {t("dashboard.title")}
         </Typography.Title>
+        <Segmented
+          value={range}
+          onChange={(v) => setRange(v as RangeKey)}
+          options={[
+            { label: t("dashboard.range.1h"), value: "1h" },
+            { label: t("dashboard.range.24h"), value: "24h" },
+            { label: t("dashboard.range.7d"), value: "7d" },
+          ]}
+        />
       </div>
 
       {overviewQuery.isError ? (
@@ -855,15 +853,17 @@ function DashboardPage() {
             onRetry={() => recentErrorsQuery.refetch()}
           />
         ) : (
-          <Table
-            columns={recentErrorColumns}
-            dataSource={recentErrorsQuery.data ?? []}
-            loading={recentErrorsQuery.isLoading}
-            pagination={false}
-            rowKey={(r) => `${r.ts}-${r.provider}-${r.status}`}
-            size="small"
-            className="[&_.ant-table]:!bg-transparent [&_.ant-table-cell]:!border-border-light dark:[&_.ant-table-cell]:!border-border-dark [&_.ant-table-thead>tr>th]:!bg-transparent [&_.ant-table-thead>tr>th]:!text-fg-muted-light dark:[&_.ant-table-thead>tr>th]:!text-fg-muted-dark"
-          />
+          <div className="max-h-[400px] overflow-y-auto">
+            <Table
+              columns={recentErrorColumns}
+              dataSource={recentErrorsQuery.data ?? []}
+              loading={recentErrorsQuery.isLoading}
+              pagination={false}
+              rowKey={(r) => `${r.ts}-${r.provider}-${r.status}`}
+              size="small"
+              className="[&_.ant-table]:!bg-transparent [&_.ant-table-cell]:!border-border-light dark:[&_.ant-table-cell]:!border-border-dark [&_.ant-table-thead>tr>th]:!bg-transparent [&_.ant-table-thead>tr>th]:!text-fg-muted-light dark:[&_.ant-table-thead>tr>th]:!text-fg-muted-dark"
+            />
+          </div>
         )}
       </div>
     </div>

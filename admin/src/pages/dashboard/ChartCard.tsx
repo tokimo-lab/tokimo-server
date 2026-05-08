@@ -10,6 +10,7 @@ type Props = {
   children: ReactNode;
   dragHandleProps?: Record<string, unknown>;
   className?: string;
+  bodyClassName?: string;
 };
 
 /**
@@ -26,6 +27,7 @@ export function ChartCard({
   children,
   dragHandleProps,
   className,
+  bodyClassName,
 }: Props) {
   const { t } = useTranslation();
   const cls = [
@@ -68,7 +70,11 @@ export function ChartCard({
         </div>
         {trailing}
       </div>
-      <div className="mt-4 flex min-h-0 flex-1 flex-col">{children}</div>
+      <div
+        className={`mt-4 flex min-h-0 flex-1 flex-col ${bodyClassName ?? ""}`}
+      >
+        {children}
+      </div>
     </div>
   );
 }
