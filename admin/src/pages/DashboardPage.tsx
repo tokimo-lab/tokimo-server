@@ -25,7 +25,7 @@ import {
   Typography,
 } from "antd";
 import { RefreshCw } from "lucide-react";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   type DashboardRecentError,
@@ -36,6 +36,7 @@ import {
   getDashboardStatusCodes,
   getDashboardTimeseries,
 } from "../api/client";
+import { useDocsRegister } from "../system/docs";
 import { useAdminTheme } from "../theme";
 import { ActivityRing } from "./dashboard/ActivityRing";
 import { ChartCard } from "./dashboard/ChartCard";
@@ -859,8 +860,27 @@ function DashboardPage() {
     },
   ];
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard",
+        sections: [{ key: "overview" }, { key: "metrics" }, { key: "refresh" }],
+        fields: [
+          { key: "range", type: "enum" },
+          { key: "interval", type: "i64" },
+        ],
+        anchorRef: containerRef,
+      }),
+      [],
+    ),
+  );
+
   return (
-    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6">
+    <div
+      ref={containerRef}
+      className="mx-auto flex w-full max-w-[1280px] flex-col gap-6"
+    >
       <div className="flex items-end justify-between gap-4">
         <Typography.Title
           level={2}

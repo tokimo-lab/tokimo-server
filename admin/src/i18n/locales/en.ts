@@ -235,6 +235,147 @@ const en = {
     cancel: "Cancel",
     success: "Cleared {{count}} records",
   },
+  docsHub: {
+    title: "Docs Hub",
+    fabTooltip: "Open Docs Hub (Cmd/Ctrl+?)",
+    minimize: "Minimize",
+    expand: "Expand",
+    close: "Close",
+    empty: "No documentation registered for the current page.",
+    sectionsHeader: "Sections",
+    fieldsHeader: "Fields",
+    entryCount: "{{count}} entries",
+  },
+  docs: {
+    dashboard: {
+      title: "Dashboard",
+      summary:
+        "Live operational view of the upstream proxy: aggregated request volume, error rates, latency percentiles and provider breakdown over the selected time range.",
+      sections: {
+        overview: {
+          title: "Overview",
+          body: "The dashboard aggregates metrics across **all configured providers** and renders them as time series, heatmaps and rings. Data is pulled from `dashboard_*` endpoints and cached on the client for 15s. Use the range switch to scope every panel simultaneously — there is no per-card time control by design.",
+        },
+        metrics: {
+          title: "Metrics",
+          body: "Each chart maps directly to a backend rollup:\n\n- **Activity Ring** — success vs error count for the range\n- **Timeseries** — bucketed request volume\n- **Latency** — p50 / p95 / p99 derived from per-request samples\n- **Heatmap** — hour × day error density\n- **Provider column** — top-N providers by traffic\n\nAll metrics are computed by the server; the admin UI never re-aggregates raw rows.",
+        },
+        refresh: {
+          title: "Refresh & cache",
+          body: "React Query polls each panel every 30s with `staleTime` 15s. The **Refresh** button forces a `refetch` on every visible card. There is also a hidden debug action (5 fast clicks on the title) that lets ops clear the rollup window — use with care, this resets metrics persistently.",
+        },
+      },
+      fields: {
+        range: {
+          label: "range",
+          desc: "Selected time window. Drives the `range` query parameter sent to every dashboard endpoint. Allowed values: `1h`, `24h`, `7d`.",
+        },
+        interval: {
+          label: "bucket",
+          desc: "Server-side bucket size (seconds) inferred from the range. Not user-controllable; charts read this from the API response so x-axis ticks always align.",
+        },
+      },
+    },
+    "provider-configs": {
+      title: "Provider Configs",
+      summary:
+        "Read-only inventory of upstream API providers wired into the proxy. Lists routing status, observed traffic and a sample request URL for each provider.",
+      sections: {
+        overview: {
+          title: "Overview",
+          body: "Provider definitions live in code and configuration — they cannot be edited from this page. The table is a **runtime mirror**: it shows whatever the server reports as currently registered, plus 24h traffic counters scraped from the metrics rollup.",
+        },
+        "sample-url": {
+          title: "Sample URL",
+          body: "Click a row to open the response inspector. The modal replays the **last successful upstream call** (or the most recent failed one, if none succeeded) so you can verify auth headers, response shape, and rate-limit fields without touching production.",
+        },
+      },
+      fields: {
+        provider: {
+          label: "provider",
+          desc: "Internal provider id (e.g. `tmdb`, `omdb`). Maps to the route prefix `/providers/{id}/...`.",
+        },
+        status: {
+          label: "status",
+          desc: "Routing health derived from the last 5 minutes of traffic. `healthy` = success ratio > 95%; `degraded` = 50–95%; `down` = < 50% or no traffic.",
+        },
+        "24h_calls": {
+          label: "24h calls",
+          desc: "Total requests routed to this provider in the last 24 hours, including cache hits and misses.",
+        },
+        hit_ratio: {
+          label: "hit ratio",
+          desc: "Cache hit percentage in the last 24 hours. Low values usually mean either cold cache or aggressive TTL — cross-check with the Cache Inspector.",
+        },
+      },
+    },
+    "service-keys": {
+      title: "Service Keys",
+      summary:
+        "Issue, view and revoke long-lived API tokens used by downstream services to call this proxy. Each key carries a fixed scope set and an immutable creation timestamp.",
+      sections: {
+        overview: {
+          title: "Overview",
+          body: "Service keys are JWT-style bearer tokens minted by the admin. They are intended for **server-to-server traffic only**; do not embed them in browser apps. Once a key is created, the raw token is shown **exactly once** — copy it immediately or rotate.",
+        },
+        "token-format": {
+          title: "Token format",
+          body: "Tokens are signed with the server's HMAC-SHA256 key and use the format `tks_<id>.<sig>`. The `id` segment is the database primary key; the `sig` segment is the HMAC over `{id, scopes, created_at}`. Verification is constant-time.",
+        },
+        scopes: {
+          title: "Scopes",
+          body: "Every key carries an explicit allowlist of scopes (e.g. `cache:read`, `dashboard:read`, `providers:write`). Scopes are checked at the route guard layer; an empty scope set yields a key that can authenticate but cannot access any resource.",
+        },
+      },
+      fields: {
+        token: {
+          label: "token",
+          desc: "Raw bearer string. Only the prefix `tks_<id>` is persisted in the table — the secret half is never stored, so a lost token must be re-issued.",
+        },
+        created_at: {
+          label: "created_at",
+          desc: "UTC timestamp of issuance. Used for audit and (optionally) for time-bounded expiry policies.",
+        },
+        scopes: {
+          label: "scopes",
+          desc: "Comma-separated permission set. Read by the auth middleware on every request; mismatched scopes return `403 forbidden`.",
+        },
+      },
+    },
+    "cache-inspector": {
+      title: "Cache Inspector",
+      summary:
+        "Inspect the per-provider response cache stored in PostgreSQL. Browse rows, preview raw bodies, force-expire stale entries and delete individual rows for debugging.",
+      sections: {
+        overview: {
+          title: "Overview",
+          body: "Each provider has a dedicated cache table named `cache_<provider>`. Rows are keyed by the canonicalised request URL plus query string. The inspector paginates rows server-side at 50 per page and never loads the raw body until you open the preview modal.",
+        },
+        ttl: {
+          title: "TTL",
+          body: "TTL is **per-provider**, configured at deploy time. The `TTL` column shows the remaining seconds until the row is considered stale. Stale rows are still served if the upstream call fails, so the cache also acts as a soft fallback.",
+        },
+        operations: {
+          title: "Operations",
+          body: "Available actions per row:\n\n- **Refresh** — set `fetched_at` far enough in the past to force the next request to re-fetch upstream\n- **Delete** — drop the row entirely\n- **Preview** — view the cached raw response body in a modal\n\nAll three operations write an audit entry; deletes are not recoverable.",
+        },
+      },
+      fields: {
+        fetched_at: {
+          label: "fetched_at",
+          desc: "UTC timestamp at which the upstream response was written into the cache. The cache age column is computed as `now() - fetched_at`.",
+        },
+        ttl_seconds: {
+          label: "ttl_seconds",
+          desc: "Per-row remaining time-to-live in seconds. Negative values indicate a stale row that will be re-fetched on the next miss.",
+        },
+        key: {
+          label: "key",
+          desc: "Canonical request key. Built from the provider id, route, and query parameters; case-normalised so equivalent requests collapse to the same row.",
+        },
+      },
+    },
+  },
 };
 
 export default en;

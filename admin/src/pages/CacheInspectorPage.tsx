@@ -9,7 +9,7 @@ import {
   Tooltip,
   message,
 } from "antd";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   type CacheRow,
@@ -19,6 +19,7 @@ import {
   listCacheTables,
   refreshCacheRow,
 } from "../api/cache";
+import { useDocsRegister } from "../system/docs";
 
 const PAGE_SIZE = 50;
 
@@ -240,8 +241,25 @@ function CacheInspectorPage() {
 
   const preview = previewRow?.raw_preview ?? "";
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "cache-inspector",
+        sections: [{ key: "overview" }, { key: "ttl" }, { key: "operations" }],
+        fields: [
+          { key: "fetched_at", type: "timestamp" },
+          { key: "ttl_seconds", type: "i64" },
+          { key: "key", type: "string" },
+        ],
+        anchorRef: containerRef,
+      }),
+      [],
+    ),
+  );
+
   return (
-    <div className="mx-auto w-full max-w-7xl px-8 py-8">
+    <div ref={containerRef} className="mx-auto w-full max-w-7xl px-8 py-8">
       <header className="mb-4">
         <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
           {t("cache.title")}

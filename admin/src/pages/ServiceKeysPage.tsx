@@ -1,11 +1,12 @@
 import { Button, Form, Input, Modal, Table, message } from "antd";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   createServiceKey,
   deleteServiceKey,
   listServiceKeys,
 } from "../api/client";
+import { useDocsRegister } from "../system/docs";
 
 interface ServiceKey {
   id: string;
@@ -96,8 +97,29 @@ function ServiceKeysPage() {
     },
   ];
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "service-keys",
+        sections: [
+          { key: "overview" },
+          { key: "token-format" },
+          { key: "scopes" },
+        ],
+        fields: [
+          { key: "token", type: "string" },
+          { key: "created_at", type: "timestamp" },
+          { key: "scopes", type: "string[]" },
+        ],
+        anchorRef: containerRef,
+      }),
+      [],
+    ),
+  );
+
   return (
-    <div className="mx-auto w-full max-w-7xl">
+    <div ref={containerRef} className="mx-auto w-full max-w-7xl">
       <header className="mb-4">
         <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
           {t("nav.serviceKeys")}

@@ -1,6 +1,7 @@
 import { Alert, Button, Input, Spin, Table, Tag, Tooltip, message } from "antd";
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useDocsRegister } from "../system/docs";
 import {
   clearServiceKey,
   loadServiceKey,
@@ -392,8 +393,29 @@ function ProviderConfigsPage() {
     },
   ];
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "provider-configs",
+        sections: [{ key: "overview" }, { key: "sample-url" }],
+        fields: [
+          { key: "provider", type: "string" },
+          { key: "status", type: "enum" },
+          { key: "24h_calls", type: "i64" },
+          { key: "hit_ratio", type: "f64" },
+        ],
+        anchorRef: containerRef,
+      }),
+      [],
+    ),
+  );
+
   return (
-    <div className="mx-auto w-full max-w-7xl flex flex-col gap-4">
+    <div
+      ref={containerRef}
+      className="mx-auto w-full max-w-7xl flex flex-col gap-4"
+    >
       {contextHolder}
       <header className="mb-4">
         <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">

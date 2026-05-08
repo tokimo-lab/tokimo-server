@@ -61,4 +61,10 @@
   .gradient-ring-hover:hover {
     box-shadow: 0 0 0 1.5px transparent, 0 0 0 1.5px var(--color-grad-purple);
   }
+  .docs-hover-outline {
+    outline: 2px solid rgb(139 92 246 / 0.6);
+    outline-offset: 2px;
+    transition: outline-color 150ms ease-out;
+    border-radius: 4px;
+  }
 }

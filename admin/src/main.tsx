@@ -10,6 +10,7 @@ import "./styles/reset.css";
 import "./styles/index.css";
 import App from "./App";
 import "./i18n";
+import { DocsProvider, DocsRoot } from "./system/docs";
 import { AdminThemeProvider, useAdminTheme } from "./theme";
 
 const queryClient = new QueryClient({
@@ -64,7 +65,10 @@ function LocalizedRoot() {
       }}
     >
       <AntdApp>
-        <App />
+        <DocsProvider>
+          <App />
+          <DocsRoot />
+        </DocsProvider>
       </AntdApp>
     </ConfigProvider>
   );
