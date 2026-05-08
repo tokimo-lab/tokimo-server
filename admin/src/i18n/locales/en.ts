@@ -63,16 +63,43 @@ const en = {
   providers: {
     title: "Provider Configurations",
     description:
-      "Static view of the {{count}} provider adapters wired into this server. Auth env vars are read from the server process environment at startup; live status of which env vars are actually populated is not surfaced here to avoid leaking secret presence.",
-    readOnlyTitle: "Read-only view",
-    readOnlyDescription:
-      "Editing provider configuration at runtime is not yet supported. Set env vars in the server's .env / deployment manifest and restart.",
+      "{{count}} provider adapters wired into this server. Edit cache TTL per provider; auth env vars are read from the server process environment at startup (only configured/missing status is surfaced, never the secret value).",
+    loadError: "Failed to load providers",
+    retry: "Retry",
     columns: {
-      provider: "Provider",
+      name: "Provider",
+      category: "Category",
       prefix: "Endpoint Prefix",
       rateLimit: "Rate Limit",
       auth: "Auth",
       envVars: "Env Vars",
+      ttl: "Cache TTL",
+    },
+    categories: {
+      book: "Book",
+      currency: "Currency",
+      geo: "Geo",
+      metadata: "Metadata",
+      music: "Music",
+      news: "News",
+      quote: "Quote",
+      sports: "Sports",
+      subtitle: "Subtitle",
+      tools: "Tools",
+      wallpaper: "Wallpaper",
+    },
+    envStatus: {
+      configured: "Configured",
+      missing: "Not Set",
+    },
+    ttl: {
+      edit: "Edit",
+      save: "Save",
+      cancel: "Cancel",
+      seconds: "seconds",
+      updated: "TTL updated",
+      updateFailed: "Failed to update TTL",
+      zeroHint: "0 = no cache",
     },
     auth: {
       required: "required",

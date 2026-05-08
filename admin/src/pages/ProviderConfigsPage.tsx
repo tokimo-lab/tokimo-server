@@ -1,6 +1,22 @@
-import { Alert, Button, Input, Spin, Table, Tag, Tooltip, message } from "antd";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Alert,
+  Button,
+  Input,
+  InputNumber,
+  Spin,
+  Table,
+  Tag,
+  Tooltip,
+  message,
+} from "antd";
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  type AdminProvider,
+  listAdminProviders,
+  patchAdminProvider,
+} from "../api/client";
 import { useDocsRegister } from "../system/docs";
 import {
   clearServiceKey,
@@ -15,281 +31,6 @@ const ProviderResponseModal = lazy(
   () => import("../components/ProviderResponseModal"),
 );
 
-interface ProviderRow {
-  key: string;
-  provider: string;
-  prefix: string;
-  sample: string;
-  rateLimit: string;
-  authRequired: "yes" | "optional" | "no";
-  envVars: string[];
-}
-
-const PROVIDERS: ProviderRow[] = [
-  {
-    key: "tmdb",
-    provider: "TMDB",
-    prefix: "/api/tmdb/...",
-    sample: "/api/tmdb/movie/550",
-    rateLimit: "10/s",
-    authRequired: "yes",
-    envVars: ["TMDB_API_KEY"],
-  },
-  {
-    key: "omdb",
-    provider: "OMDb",
-    prefix: "/api/omdb/...",
-    sample: "/api/omdb/title/tt1375666",
-    rateLimit: "10/s",
-    authRequired: "yes",
-    envVars: ["OMDB_API_KEY"],
-  },
-  {
-    key: "thetvdb",
-    provider: "TheTVDB",
-    prefix: "/api/thetvdb/...",
-    sample: "/api/thetvdb/series/121361",
-    rateLimit: "10/s",
-    authRequired: "yes",
-    envVars: ["THETVDB_API_KEY"],
-  },
-  {
-    key: "bangumi",
-    provider: "Bangumi",
-    prefix: "/api/bangumi/...",
-    sample: "/api/bangumi/subject/8",
-    rateLimit: "10/s",
-    authRequired: "yes",
-    envVars: ["BANGUMI_USER_AGENT"],
-  },
-  {
-    key: "fanart",
-    provider: "Fanart",
-    prefix: "/api/fanart/...",
-    sample: "/api/fanart/movie/550",
-    rateLimit: "10/s",
-    authRequired: "yes",
-    envVars: ["FANART_API_KEY"],
-  },
-  {
-    key: "douban",
-    provider: "Douban",
-    prefix: "/api/douban/...",
-    sample: "/api/douban/search?q=%E8%82%96%E7%94%B3%E5%85%8B",
-    rateLimit: "1/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "currency",
-    provider: "Currency Rates",
-    prefix: "/api/currency/rates",
-    sample: "/api/currency/rates?targets=CNY,EUR,JPY",
-    rateLimit: "10/s",
-    authRequired: "yes",
-    envVars: [],
-  },
-  {
-    key: "spotify",
-    provider: "Spotify",
-    prefix: "/api/spotify/...",
-    sample: "/api/spotify/track/4uLU6hMCjMI75M1A2tKUQC",
-    rateLimit: "30/s",
-    authRequired: "yes",
-    envVars: ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"],
-  },
-  {
-    key: "musicbrainz",
-    provider: "MusicBrainz",
-    prefix: "/api/musicbrainz/...",
-    sample: "/api/musicbrainz/artist/cc197bad-dc9c-440d-a5b5-d52ba2e14234",
-    rateLimit: "1/s",
-    authRequired: "yes",
-    envVars: ["MUSICBRAINZ_USER_AGENT"],
-  },
-  {
-    key: "deezer",
-    provider: "Deezer",
-    prefix: "/api/deezer/...",
-    sample: "/api/deezer/track/3135556",
-    rateLimit: "30/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "lrclib",
-    provider: "LRCLIB",
-    prefix: "/api/lrclib/...",
-    sample: "/api/lrclib/get?artist=Coldplay&track=Yellow",
-    rateLimit: "30/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "qidian",
-    provider: "Qidian",
-    prefix: "/api/qidian/...",
-    sample: "/api/qidian/search?q=%E6%96%97%E7%A0%B4%E8%8B%8D%E7%A9%B9",
-    rateLimit: "1/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "wikipedia",
-    provider: "Wikipedia",
-    prefix: "/api/wikipedia/summary",
-    sample: "/api/wikipedia/summary?title=Linux&lang=en",
-    rateLimit: "10/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "openmeteo",
-    provider: "Open-Meteo",
-    prefix: "/api/openmeteo/...",
-    sample: "/api/openmeteo/forecast?lat=40.71&lon=-74.01&days=3",
-    rateLimit: "100/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "nominatim",
-    provider: "Nominatim",
-    prefix: "/api/nominatim/...",
-    sample: "/api/nominatim/search?q=Brandenburg+Gate",
-    rateLimit: "1/s (TOS)",
-    authRequired: "yes",
-    envVars: ["NOMINATIM_USER_AGENT"],
-  },
-  {
-    key: "geocoding",
-    provider: "Geocoding (composite)",
-    prefix: "/api/geocoding/...",
-    sample: "/api/geocoding/forward?q=Berlin",
-    rateLimit: "30/s",
-    authRequired: "yes",
-    envVars: ["NOMINATIM_USER_AGENT"],
-  },
-  {
-    key: "holiday",
-    provider: "Holiday (Timor + Nager)",
-    prefix: "/api/holiday/:country/:year",
-    sample: "/api/holiday/US/2024",
-    rateLimit: "10/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "assrt",
-    provider: "Assrt",
-    prefix: "/api/assrt/...",
-    sample: "/api/assrt/search?q=Inception",
-    rateLimit: "10/s",
-    authRequired: "yes",
-    envVars: ["ASSRT_API_KEY"],
-  },
-  {
-    key: "github",
-    provider: "GitHub Releases",
-    prefix: "/api/github/releases/...",
-    sample: "/api/github/releases/rust-lang/rust/latest",
-    rateLimit: "30/s",
-    authRequired: "optional",
-    envVars: ["GITHUB_TOKEN"],
-  },
-  {
-    key: "baidu_hot",
-    provider: "Baidu Hot",
-    prefix: "/api/hot/list",
-    sample: "/api/hot/list?id=bilibili",
-    rateLimit: "per-source",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "baidu_sports",
-    provider: "Baidu Sports",
-    prefix: "/api/sports/schedule",
-    sample: "/api/sports/schedule?type=hot&date={TODAY}",
-    rateLimit: "10/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "hitokoto",
-    provider: "Hitokoto (一言)",
-    prefix: "/api/hitokoto/sentence",
-    sample: "/api/hitokoto/sentence?c=a",
-    rateLimit: "10/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "zenquotes",
-    provider: "ZenQuotes",
-    prefix: "/api/zenquotes/random",
-    sample: "/api/zenquotes/random",
-    rateLimit: "10/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "bing",
-    provider: "Bing Daily Wallpaper",
-    prefix: "/api/bing/wallpaper",
-    sample: "/api/bing/wallpaper?mkt=zh-CN&n=1&idx=0",
-    rateLimit: "10/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "opensubtitles",
-    provider: "OpenSubtitles",
-    prefix: "/api/opensubtitles/search",
-    sample: "/api/opensubtitles/search?imdb_id=tt1375666&languages=en,zh-cn",
-    rateLimit: "10/s",
-    authRequired: "yes",
-    envVars: ["OPENSUBTITLES_API_KEY"],
-  },
-  {
-    key: "regielive",
-    provider: "RegIeLive (Romanian subs)",
-    prefix: "/api/regielive/search",
-    sample: "/api/regielive/search?nume=Inception",
-    rateLimit: "10/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "gestdown",
-    provider: "Gestdown (Addic7ed mirror)",
-    prefix: "/api/gestdown/...",
-    sample: "/api/gestdown/shows/search?title=Game%20of%20Thrones",
-    rateLimit: "10/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "shooter",
-    provider: "Shooter (射手网)",
-    prefix: "/api/shooter/search",
-    sample:
-      "/api/shooter/search?filehash=8b9f1234abcd;1234567890abcdef;abcdef0123456789;0011223344556677&pathinfo=video.mkv&lang=chn",
-    rateLimit: "10/s",
-    authRequired: "no",
-    envVars: [],
-  },
-  {
-    key: "animetosho",
-    provider: "AnimeTosho (anime feed)",
-    prefix: "/api/animetosho/...",
-    sample: "/api/animetosho/search?q=Frieren",
-    rateLimit: "10/s",
-    authRequired: "no",
-    envVars: [],
-  },
-];
-
 interface FetchResult {
   status: number;
   duration: number;
@@ -303,21 +44,55 @@ function expandSample(sample: string): string {
   return sample.replace(/\{TODAY\}/g, today);
 }
 
+function humanizeTtl(seconds: number): string {
+  if (seconds <= 0) return "0s";
+  if (seconds % 86400 === 0) return `${seconds / 86400}d`;
+  if (seconds % 3600 === 0) return `${seconds / 3600}h`;
+  if (seconds % 60 === 0) return `${seconds / 60}m`;
+  return `${seconds}s`;
+}
+
 function ProviderConfigsPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [serviceKey, setServiceKey] = useState<string>(() => loadServiceKey());
-  const [active, setActive] = useState<ProviderRow | null>(null);
+  const [active, setActive] = useState<AdminProvider | null>(null);
   const [result, setResult] = useState<FetchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
-  const pendingRowRef = useRef<ProviderRow | null>(null);
+  const pendingRowRef = useRef<AdminProvider | null>(null);
   const [messageApi, contextHolder] = message.useMessage();
+
+  const [editing, setEditing] = useState<{ key: string; value: number } | null>(
+    null,
+  );
+
+  const providersQuery = useQuery({
+    queryKey: ["admin", "providers"],
+    queryFn: () => listAdminProviders(),
+    staleTime: 30_000,
+  });
+
+  const ttlMutation = useMutation({
+    mutationFn: (vars: { key: string; ttl_seconds: number }) =>
+      patchAdminProvider(vars.key, { ttl_seconds: vars.ttl_seconds }),
+    onSuccess: () => {
+      messageApi.success(t("providers.ttl.updated"));
+      setEditing(null);
+      queryClient.invalidateQueries({ queryKey: ["admin", "providers"] });
+    },
+    onError: (err) => {
+      messageApi.error(
+        `${t("providers.ttl.updateFailed")}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    },
+  });
 
   useEffect(() => {
     saveServiceKey(serviceKey);
   }, [serviceKey]);
 
-  const authTag = (v: ProviderRow["authRequired"]) => {
+  const authTag = (v: AdminProvider["auth_required"]) => {
     switch (v) {
       case "yes":
         return <Tag color="red">{t("providers.auth.required")}</Tag>;
@@ -328,7 +103,7 @@ function ProviderConfigsPage() {
     }
   };
 
-  const fireRequest = async (row: ProviderRow, key: string) => {
+  const fireRequest = async (row: AdminProvider, key: string) => {
     setActive(row);
     setResult(null);
     setLoading(true);
@@ -367,7 +142,7 @@ function ProviderConfigsPage() {
     }
   };
 
-  const handleSend = (row: ProviderRow) => {
+  const handleSend = (row: AdminProvider) => {
     if (!serviceKey) {
       pendingRowRef.current = row;
       setPromptOpen(true);
@@ -404,11 +179,158 @@ function ProviderConfigsPage() {
 
   const columns = [
     {
-      title: t("providers.columns.provider"),
-      dataIndex: "provider",
-      key: "provider",
+      title: t("providers.columns.name"),
+      dataIndex: "key",
+      key: "name",
       width: 180,
-      render: (v: string) => <span className="font-medium">{v}</span>,
+      render: (_: unknown, row: AdminProvider) => (
+        <span className="font-medium">
+          {t(row.i18n_name_key, { defaultValue: row.key })}
+        </span>
+      ),
+    },
+    {
+      title: t("providers.columns.category"),
+      dataIndex: "category",
+      key: "category",
+      width: 110,
+      render: (v: string) => (
+        <span className="text-xs text-fg-muted-light dark:text-fg-muted-dark">
+          {t(`providers.categories.${v}`, { defaultValue: v })}
+        </span>
+      ),
+    },
+    {
+      title: t("providers.columns.prefix"),
+      dataIndex: "prefix",
+      key: "prefix",
+      width: 200,
+      ellipsis: { showTitle: false },
+      render: (v: string) => (
+        <Tooltip title={v} placement="topLeft">
+          <code className="text-xs text-fg-muted-light dark:text-fg-muted-dark">
+            {v}
+          </code>
+        </Tooltip>
+      ),
+    },
+    {
+      title: t("providers.columns.rateLimit"),
+      dataIndex: "rate_limit",
+      key: "rateLimit",
+      width: 100,
+    },
+    {
+      title: t("providers.columns.auth"),
+      dataIndex: "auth_required",
+      key: "auth",
+      width: 90,
+      render: authTag,
+    },
+    {
+      title: t("providers.columns.envVars"),
+      key: "envVars",
+      width: 220,
+      render: (_: unknown, row: AdminProvider) => {
+        if (row.env_keys.length === 0) {
+          return (
+            <span className="text-fg-muted-light dark:text-fg-muted-dark">
+              —
+            </span>
+          );
+        }
+        return (
+          <div className="flex flex-wrap gap-1">
+            {row.env_keys.map((k) => {
+              const ok = row.env_status[k] === true;
+              return (
+                <Tooltip
+                  key={k}
+                  title={t(
+                    ok
+                      ? "providers.envStatus.configured"
+                      : "providers.envStatus.missing",
+                  )}
+                >
+                  <Tag color={ok ? "green" : "default"} className="text-xs">
+                    {k}
+                  </Tag>
+                </Tooltip>
+              );
+            })}
+          </div>
+        );
+      },
+    },
+    {
+      title: t("providers.columns.ttl"),
+      key: "ttl",
+      width: 220,
+      render: (_: unknown, row: AdminProvider) => {
+        const isEditing = editing?.key === row.key;
+        if (isEditing) {
+          const changed = editing.value !== row.ttl_seconds;
+          return (
+            <div className="flex items-center gap-1">
+              <InputNumber
+                size="small"
+                min={0}
+                value={editing.value}
+                onChange={(v) =>
+                  setEditing({
+                    key: row.key,
+                    value: typeof v === "number" ? v : 0,
+                  })
+                }
+                style={{ width: 90 }}
+              />
+              <Tooltip title={t("providers.ttl.zeroHint")}>
+                <span className="text-xs text-fg-muted-light dark:text-fg-muted-dark">
+                  {t("providers.ttl.seconds")}
+                </span>
+              </Tooltip>
+              <Button
+                size="small"
+                type="primary"
+                disabled={!changed || ttlMutation.isPending}
+                loading={ttlMutation.isPending}
+                onClick={() =>
+                  ttlMutation.mutate({
+                    key: row.key,
+                    ttl_seconds: editing.value,
+                  })
+                }
+              >
+                {t("providers.ttl.save")}
+              </Button>
+              <Button
+                size="small"
+                onClick={() => setEditing(null)}
+                disabled={ttlMutation.isPending}
+              >
+                {t("providers.ttl.cancel")}
+              </Button>
+            </div>
+          );
+        }
+        return (
+          <div className="flex items-center gap-2">
+            <Tooltip title={`${row.ttl_seconds}s`}>
+              <span className="font-mono text-xs">
+                {humanizeTtl(row.ttl_seconds)}
+              </span>
+            </Tooltip>
+            <Button
+              size="small"
+              onClick={() =>
+                setEditing({ key: row.key, value: row.ttl_seconds })
+              }
+            >
+              {t("providers.ttl.edit")}
+            </Button>
+          </div>
+        );
+      },
     },
     {
       title: t("providers.columns2.sampleUrl"),
@@ -424,41 +346,10 @@ function ProviderConfigsPage() {
       ),
     },
     {
-      title: t("providers.columns.rateLimit"),
-      dataIndex: "rateLimit",
-      key: "rateLimit",
-      width: 100,
-    },
-    {
-      title: t("providers.columns.auth"),
-      dataIndex: "authRequired",
-      key: "authRequired",
-      width: 90,
-      render: authTag,
-    },
-    {
-      title: t("providers.columns.envVars"),
-      dataIndex: "envVars",
-      key: "envVars",
-      width: 220,
-      render: (vars: string[]) =>
-        vars.length === 0 ? (
-          <span className="text-fg-muted-light dark:text-fg-muted-dark">—</span>
-        ) : (
-          <div className="flex flex-wrap gap-1">
-            {vars.map((v) => (
-              <Tag key={v} className="text-xs">
-                {v}
-              </Tag>
-            ))}
-          </div>
-        ),
-    },
-    {
       title: t("providers.columns2.action"),
       key: "action",
       width: 100,
-      render: (_: unknown, row: ProviderRow) => (
+      render: (_: unknown, row: AdminProvider) => (
         <Button size="small" type="primary" onClick={() => handleSend(row)}>
           {t("providers.test.sendBtn")}
         </Button>
@@ -493,11 +384,14 @@ function ProviderConfigsPage() {
       () => ({
         id: "provider-configs-table",
         fields: [
-          { key: "column-provider", type: "string" },
-          { key: "column-sample-url", type: "path" },
+          { key: "column-name", type: "string · i18n" },
+          { key: "column-category", type: "string · i18n" },
+          { key: "column-prefix", type: "string" },
           { key: "column-rate-limit", type: "string · token-bucket" },
           { key: "column-auth", type: "required | optional | none" },
-          { key: "column-env-vars", type: "string[]" },
+          { key: "column-env-vars", type: "Tag[] · configured/missing" },
+          { key: "column-ttl", type: "u64 · seconds (editable)" },
+          { key: "column-sample-url", type: "path" },
           { key: "column-action-send", type: "button" },
         ],
         anchorRef: tableRef,
@@ -522,6 +416,8 @@ function ProviderConfigsPage() {
     ),
   );
 
+  const providers = providersQuery.data ?? [];
+
   return (
     <div className="mx-auto w-full max-w-7xl flex flex-col gap-4">
       {contextHolder}
@@ -531,16 +427,9 @@ function ProviderConfigsPage() {
             {t("providers.title")}
           </h1>
           <p className="mt-1 text-sm text-fg-muted-light dark:text-fg-muted-dark">
-            {t("providers.description", { count: PROVIDERS.length })}
+            {t("providers.description", { count: providers.length })}
           </p>
         </header>
-        <Alert
-          className="mb-4"
-          type="info"
-          showIcon
-          message={t("providers.readOnlyTitle")}
-          description={t("providers.readOnlyDescription")}
-        />
         <div className="mb-4 flex w-full gap-2">
           <Input
             addonBefore={t("providers.serviceKey.label")}
@@ -556,15 +445,38 @@ function ProviderConfigsPage() {
         </div>
       </div>
       <div ref={tableRef}>
-        <Table
-          dataSource={PROVIDERS}
-          columns={columns}
-          pagination={false}
-          size="small"
-          sticky
-          scroll={{ x: 960, y: "calc(100vh - 320px)" }}
-          className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark"
-        />
+        {providersQuery.isLoading ? (
+          <div className="flex justify-center py-10">
+            <Spin />
+          </div>
+        ) : providersQuery.isError ? (
+          <Alert
+            type="error"
+            showIcon
+            message={t("providers.loadError")}
+            description={
+              providersQuery.error instanceof Error
+                ? providersQuery.error.message
+                : String(providersQuery.error)
+            }
+            action={
+              <Button size="small" onClick={() => providersQuery.refetch()}>
+                {t("providers.retry")}
+              </Button>
+            }
+          />
+        ) : (
+          <Table
+            dataSource={providers}
+            rowKey="key"
+            columns={columns}
+            pagination={false}
+            size="small"
+            sticky
+            scroll={{ x: 1400, y: "calc(100vh - 320px)" }}
+            className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark"
+          />
+        )}
       </div>
       <Suspense fallback={<Spin />}>
         <ServiceKeyPromptModal
@@ -574,7 +486,11 @@ function ProviderConfigsPage() {
         />
         <ProviderResponseModal
           open={active !== null}
-          provider={active?.provider}
+          provider={
+            active
+              ? t(active.i18n_name_key, { defaultValue: active.key })
+              : undefined
+          }
           sample={active ? expandSample(active.sample) : undefined}
           loading={loading}
           result={result}

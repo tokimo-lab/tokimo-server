@@ -64,16 +64,43 @@ const zh: Resources = {
   providers: {
     title: "Provider 配置",
     description:
-      "本服务接入的 {{count}} 个 Provider 适配器静态视图。鉴权所需环境变量在服务启动时从进程环境读取；为避免泄露密钥存在性，此处不展示运行时实际是否已配置。",
-    readOnlyTitle: "只读视图",
-    readOnlyDescription:
-      "暂不支持运行时编辑 Provider 配置。请在服务的 .env / 部署清单中设置环境变量后重启。",
+      "本服务接入的 {{count}} 个 Provider 适配器。可在线编辑缓存 TTL；鉴权所需环境变量在启动时从进程环境读取，此处仅显示是否已配置，从不暴露密钥值。",
+    loadError: "加载 Provider 失败",
+    retry: "重试",
     columns: {
-      provider: "Provider",
+      name: "Provider",
+      category: "分类",
       prefix: "接口前缀",
       rateLimit: "限流",
       auth: "鉴权",
       envVars: "环境变量",
+      ttl: "缓存 TTL",
+    },
+    categories: {
+      book: "图书",
+      currency: "汇率",
+      geo: "地理",
+      metadata: "媒体元数据",
+      music: "音乐",
+      news: "热搜",
+      quote: "金句",
+      sports: "体育",
+      subtitle: "字幕",
+      tools: "工具",
+      wallpaper: "壁纸",
+    },
+    envStatus: {
+      configured: "已配置",
+      missing: "未设置",
+    },
+    ttl: {
+      edit: "编辑",
+      save: "保存",
+      cancel: "取消",
+      seconds: "秒",
+      updated: "TTL 已更新",
+      updateFailed: "更新 TTL 失败",
+      zeroHint: "0 = 不缓存",
     },
     auth: {
       required: "必填",
