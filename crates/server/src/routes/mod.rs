@@ -20,6 +20,7 @@ pub mod openmeteo;
 pub mod opensubtitles;
 pub mod qidian;
 pub mod regielive;
+pub mod shooter;
 pub mod sports;
 pub mod spotify;
 pub mod thetvdb;
@@ -69,6 +70,7 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/opensubtitles", provider_routes(opensubtitles::routes(), &state))
         .nest("/regielive", provider_routes(regielive::routes(), &state))
         .nest("/gestdown", provider_routes(gestdown::routes(), &state))
+        .nest("/shooter", provider_routes(shooter::routes(), &state))
         .fallback(api_not_found)
         .layer(middleware::from_fn_with_state(state.clone(), record_metrics))
         .with_state(state)

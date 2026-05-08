@@ -269,6 +269,16 @@ const PROVIDERS: ProviderRow[] = [
     authRequired: "no",
     envVars: [],
   },
+  {
+    key: "shooter",
+    provider: "Shooter (射手网)",
+    prefix: "/api/shooter/search",
+    sample:
+      "/api/shooter/search?filehash=8b9f1234abcd;1234567890abcdef;abcdef0123456789;0011223344556677&pathinfo=video.mkv&lang=chn",
+    rateLimit: "10/s",
+    authRequired: "no",
+    envVars: [],
+  },
 ];
 
 interface FetchResult {

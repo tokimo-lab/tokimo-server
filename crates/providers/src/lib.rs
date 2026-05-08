@@ -21,6 +21,7 @@ pub mod open_meteo;
 pub mod opensubtitles;
 pub mod qidian;
 pub mod regielive;
+pub mod shooter;
 pub mod spotify;
 pub mod thetvdb;
 pub mod tmdb;
