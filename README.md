@@ -9,7 +9,7 @@ An adapter, cache, and CDN-fronting service for third-party APIs (TMDB, Baidu Ho
 - 🌊 **Rate Limiting**: Token-bucket rate limiter persisted to PostgreSQL
 - 💾 **Caching**: Database-backed caching with TTL
 - 📦 **Asset Storage**: Local filesystem · S3-compatible (AWS S3 / MinIO) · Aliyun OSS
-- 🎬 **20+ Provider Adapters**: video metadata (TMDB, OMDb, TheTVDB, Bangumi, Fanart, Douban) · music (Spotify, MusicBrainz, Deezer, LRCLIB) · books (Qidian) · encyclopedia (Wikipedia) · geo/weather (Open-Meteo, Nominatim, Geocoding) · holidays (Timor + Nager) · subtitles (Assrt) · releases (GitHub) · trending (Baidu Hot, Baidu Sports)
+- 🎬 **27 Provider Adapters**: video metadata (TMDB, OMDb, TheTVDB, Bangumi, Fanart, Douban) · music (Spotify, MusicBrainz, Deezer, LRCLIB) · books (Qidian) · encyclopedia (Wikipedia) · geo/weather (Open-Meteo, Nominatim, Geocoding) · holidays (Timor + Nager) · subtitles (Assrt, OpenSubtitles, RegieLive, Gestdown) · releases (GitHub) · trending (Baidu Hot, Baidu Sports) · quotes (Hitokoto, ZenQuotes) · wallpaper (Bing) · currency (exchange rates)
 - 🔥 **Hot Search Aggregator**: Multi-source trending topics (Weibo, Bilibili, Baidu, GitHub Trending, Hacker News, V2EX)
 
 ## Tech Stack
@@ -36,11 +36,12 @@ graph TB
         Storage[Storage Layer]
     end
     
-    subgraph Providers["Providers (20+ adapters)"]
+    subgraph Providers["Providers (27 adapters)"]
         Video[Video: TMDB · OMDb · TheTVDB · Bangumi · Fanart · Douban]
         Music[Music: Spotify · MusicBrainz · Deezer · LRCLIB]
         Geo[Geo/Weather: Open-Meteo · Nominatim · Geocoding · Holiday]
-        Misc[Misc: Wikipedia · Qidian · Assrt · GitHub Releases · Baidu Hot/Sports]
+        Subs[Subtitles: Assrt · OpenSubtitles · RegieLive · Gestdown]
+        Misc[Misc: Wikipedia · Qidian · GitHub Releases · Baidu Hot/Sports · Hitokoto · ZenQuotes · Bing Wallpaper · Currency]
     end
     
     DB[(PostgreSQL)]
@@ -70,7 +71,7 @@ Multi-instance deployments dedup concurrent identical requests in two tiers. The
 
 ## Provider Status
 
-All 20 adapters below follow the same pattern: typed adapter → DB cache table → cross-process single-flight → rate-limited upstream call.
+All 27 adapters below follow the same pattern: typed adapter → DB cache table → cross-process single-flight → rate-limited upstream call.
 
 | Provider | Endpoints (representative) | Rate Limit | Auth |
 |----------|---------------------------|------------|------|
@@ -91,9 +92,16 @@ All 20 adapters below follow the same pattern: typed adapter → DB cache table 
 | Geocoding | `/api/geocoding/{forward,reverse}` (composite) | 30/s | reuses Nominatim UA |
 | Holiday | `/api/holiday/:country/:year` (Timor + Nager merged) | 10/s | none |
 | Assrt | `/api/assrt/{search,sub/:id/detail}` | 10/s | `ASSRT_API_KEY` |
+| OpenSubtitles | `/api/opensubtitles/search` | 10/s | `OPENSUBTITLES_API_KEY` |
+| RegieLive | `/api/regielive/search` | 10/s | none (hardcoded Bazarr UA + key) |
+| Gestdown | `/api/gestdown/{shows/search,subtitles}` | 10/s | none |
 | GitHub Releases | `/api/github/releases/:owner/:repo/{latest,list}` | 30/s | optional `GITHUB_TOKEN` |
 | Baidu Hot | `/api/hot/list?id=...` | per-source | none |
 | Baidu Sports | `/api/sports/schedule?...` | 10/s | none |
+| Hitokoto | `/api/hitokoto/sentence` | 10/s | none |
+| ZenQuotes | `/api/zenquotes/random` | 10/s | none |
+| Bing Wallpaper | `/api/bing/wallpaper` | 10/s | none |
+| Currency | `/api/currency/rates` | 10/s | none |
 
 ## Environment Variables
 
@@ -111,6 +119,7 @@ Server / database / storage env vars are listed in [Configuration](#configuratio
 | `MUSICBRAINZ_USER_AGENT` | required | MusicBrainz requires a contact UA per their TOS |
 | `NOMINATIM_USER_AGENT` | required | OSM Nominatim requires a contact UA; **also reused by `/api/geocoding`** |
 | `ASSRT_API_KEY` | required | assrt.net subtitle API token |
+| `OPENSUBTITLES_API_KEY` | required for `/api/opensubtitles` | OpenSubtitles consumer key — register at https://www.opensubtitles.com/en/consumers |
 | `GITHUB_TOKEN` | optional | raises GitHub anonymous rate limit (60/h → 5000/h) |
 
 ## Quick Start
