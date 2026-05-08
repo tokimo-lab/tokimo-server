@@ -6,7 +6,7 @@ use axum::{
 };
 use jsonwebtoken::{encode, EncodingKey, Header};
 use rand::Rng;
-use sea_orm::{entity::*, PaginatorTrait, QueryOrder, QuerySelect};
+use sea_orm::{entity::*, DbBackend, FromQueryResult, PaginatorTrait, QueryOrder, QuerySelect, Statement};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -295,148 +295,181 @@ struct CacheTableInfo {
     name: &'static str,
     pk_cols: &'static [&'static str],
     has_raw_json: bool,
+    default_ttl_seconds: i64,
 }
+
+// Admin cache tables do not currently expose provider-specific data TTL constants.
+// Use a single documented default for TTL inspection until provider TTL metadata exists.
+const DEFAULT_CACHE_TTL_SECONDS: i64 = 30 * 24 * 60 * 60;
 
 const CACHE_TABLES: &[CacheTableInfo] = &[
     CacheTableInfo {
         name: "assrt_searches",
         pk_cols: &["cache_key"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "assrt_sub_details",
         pk_cols: &["sub_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "bangumi_subjects",
         pk_cols: &["id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "deezer_albums",
         pk_cols: &["deezer_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "deezer_artists",
         pk_cols: &["deezer_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "deezer_tracks",
         pk_cols: &["deezer_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "douban_subjects",
         pk_cols: &["douban_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "fanart_assets",
         pk_cols: &["kind", "foreign_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "geocoding_results",
         pk_cols: &["cache_key"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "github_releases",
         pk_cols: &["cache_key"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "holiday_years",
         pk_cols: &["country", "year"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "lrclib_lyrics",
         pk_cols: &["cache_key"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "musicbrainz_artists",
         pk_cols: &["mbid"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "musicbrainz_recordings",
         pk_cols: &["mbid"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "musicbrainz_releases",
         pk_cols: &["mbid"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "nominatim_geocode",
         pk_cols: &["cache_key"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "omdb_titles",
         pk_cols: &["imdb_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "openmeteo_forecasts",
         pk_cols: &["cache_key"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "qidian_books",
         pk_cols: &["qidian_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "spotify_albums",
         pk_cols: &["spotify_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "spotify_artists",
         pk_cols: &["spotify_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "spotify_tracks",
         pk_cols: &["spotify_id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "thetvdb_episodes",
         pk_cols: &["id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "thetvdb_series",
         pk_cols: &["id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "tmdb_images",
         pk_cols: &["image_path"],
         has_raw_json: false,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "tmdb_movies",
         pk_cols: &["id"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "tmdb_objects",
         pk_cols: &["kind", "key"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
     CacheTableInfo {
         name: "wikipedia_summaries",
         pk_cols: &["cache_key"],
         has_raw_json: true,
+        default_ttl_seconds: DEFAULT_CACHE_TTL_SECONDS,
     },
 ];
 
@@ -444,6 +477,11 @@ const CACHE_TABLES: &[CacheTableInfo] = &[
 struct CacheTableResponse {
     name: &'static str,
     row_count: u64,
+    avg_ttl_remaining_seconds: Option<i64>,
+}
+
+#[derive(FromQueryResult)]
+struct CacheTtlAggregate {
     avg_ttl_remaining_seconds: Option<i64>,
 }
 
@@ -493,11 +531,28 @@ async fn cache_tables(State(state): State<AppState>) -> AppResult<Json<Vec<Cache
         tables.push(CacheTableResponse {
             name: table.name,
             row_count,
-            avg_ttl_remaining_seconds: None,
+            avg_ttl_remaining_seconds: avg_ttl_remaining_seconds(&state, table).await?,
         });
     }
 
     Ok(Json(tables))
+}
+
+async fn avg_ttl_remaining_seconds(state: &AppState, table: &CacheTableInfo) -> AppResult<Option<i64>> {
+    let sql = format!(
+        r#"SELECT ROUND(AVG(GREATEST($1::double precision - EXTRACT(EPOCH FROM (NOW() - fetched_at)), 0)))::bigint AS avg_ttl_remaining_seconds FROM "{}""#,
+        table.name
+    );
+    let row = CacheTtlAggregate::find_by_statement(Statement::from_sql_and_values(
+        DbBackend::Postgres,
+        sql,
+        [table.default_ttl_seconds.into()],
+    ))
+    .one(&state.db)
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    Ok(row.and_then(|row| row.avg_ttl_remaining_seconds))
 }
 
 #[derive(Deserialize)]

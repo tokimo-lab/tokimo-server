@@ -160,16 +160,44 @@ const zh: Resources = {
     },
   },
   cache: {
-    title: "缓存查看器",
-    comingSoonTitle: "即将推出",
-    comingSoonDescriptionPrefix: "管理接口 ",
-    comingSoonDescriptionMiddle:
-      " 当前是返回空列表的占位实现。待按表查询接口上线后（计划：",
-    comingSoonDescriptionAnd: " 与 ",
-    comingSoonDescriptionSuffix: "），本页将展示最近 N 条记录，包含 ",
-    comingSoonDescriptionTail: "，并提供「强制刷新」操作。",
-    tablesIntro:
-      "工作区当前持久化的 Provider 缓存表（每行对应一个上游资源，并附带 TTL 过期时间列）：",
+    title: "缓存检查器",
+    description: "查看 / 清除 / 强制过期各 provider 的缓存",
+    tablePlaceholder: "选择缓存表",
+    searchPlaceholder: "搜索 id、key 或预览内容",
+    confirmDeleteTitle: "确认删除这条缓存？",
+    previewHint: "这里只展示前 200 个字符。完整缓存内容需要直接查询数据库。",
+    previewModalTitle: "前 200 字符预览",
+    columns: {
+      id: "ID",
+      key: "Key",
+      fetchedAt: "抓取时间",
+      rawPreview: "原始预览",
+      operations: "操作",
+    },
+    actions: {
+      viewFull: "查看完整",
+      expire: "强制过期",
+      delete: "删除",
+    },
+    ttl: {
+      average: "平均剩余 TTL：{{value}}",
+      expired: "已过期",
+      empty: "无数据",
+      days: "{{count}}天",
+      hours: "{{count}}小时",
+      minutes: "{{count}}分",
+      seconds: "{{count}}秒",
+    },
+    relative: {
+      justNow: "刚刚",
+      minutesAgo: "{{count}} 分钟前",
+      hoursAgo: "{{count}} 小时前",
+      daysAgo: "{{count}} 天前",
+    },
+    toasts: {
+      expired: "缓存已强制过期",
+      deleted: "缓存已删除",
+    },
   },
 };
 

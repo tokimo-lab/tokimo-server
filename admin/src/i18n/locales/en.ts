@@ -160,15 +160,44 @@ const en = {
   },
   cache: {
     title: "Cache Inspector",
-    comingSoonTitle: "Coming soon",
-    comingSoonDescriptionPrefix: "The admin ",
-    comingSoonDescriptionMiddle:
-      " endpoint is currently a stub returning an empty list. Once a per-table inspect endpoint lands (planned: ",
-    comingSoonDescriptionAnd: " and ",
-    comingSoonDescriptionSuffix: "), this page will render last-N rows with ",
-    comingSoonDescriptionTail: ' plus a "force refresh" action.',
-    tablesIntro:
-      "Provider cache tables currently persisted by the workspace (one row per upstream resource, plus a TTL column for expiry):",
+    description: "View / clear / force-expire provider cache entries",
+    tablePlaceholder: "Select cache table",
+    searchPlaceholder: "Search id, key, or preview",
+    confirmDeleteTitle: "Delete this cache row?",
+    previewHint:
+      "This preview only contains the first 200 characters. Query the database directly to inspect the full cached payload.",
+    previewModalTitle: "Preview first 200 chars",
+    columns: {
+      id: "ID",
+      key: "Key",
+      fetchedAt: "Fetched at",
+      rawPreview: "Raw preview",
+      operations: "Operations",
+    },
+    actions: {
+      viewFull: "View full",
+      expire: "Expire",
+      delete: "Delete",
+    },
+    ttl: {
+      average: "Average TTL remaining: {{value}}",
+      expired: "Expired",
+      empty: "No rows",
+      days: "{{count}}d",
+      hours: "{{count}}h",
+      minutes: "{{count}}m",
+      seconds: "{{count}}s",
+    },
+    relative: {
+      justNow: "Just now",
+      minutesAgo: "{{count}}m ago",
+      hoursAgo: "{{count}}h ago",
+      daysAgo: "{{count}}d ago",
+    },
+    toasts: {
+      expired: "Cache row expired",
+      deleted: "Cache row deleted",
+    },
   },
 };
 
