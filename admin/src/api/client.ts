@@ -79,6 +79,53 @@ export async function listProviderConfigs() {
   return res.json();
 }
 
+export interface AdminProvider {
+  key: string;
+  category: string;
+  prefix: string;
+  sample: string;
+  rate_limit: string;
+  auth_required: "yes" | "optional" | "no";
+  env_keys: string[];
+  env_status: Record<string, boolean>;
+  ttl_seconds: number;
+  enabled: boolean;
+  i18n_name_key: string;
+  i18n_desc_key: string;
+}
+
+export async function listAdminProviders(): Promise<AdminProvider[]> {
+  const res = await fetch(`${API_BASE}/admin/providers`, {
+    headers: getHeaders(),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch admin providers");
+  }
+
+  return res.json();
+}
+
+export async function patchAdminProvider(
+  key: string,
+  body: { ttl_seconds?: number; enabled?: boolean },
+): Promise<{ ok: true }> {
+  const res = await fetch(
+    `${API_BASE}/admin/providers/${encodeURIComponent(key)}`,
+    {
+      method: "PATCH",
+      headers: getHeaders(),
+      body: JSON.stringify(body),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to update provider config");
+  }
+
+  return res.json();
+}
+
 export async function listCache() {
   const res = await fetch(`${API_BASE}/admin/cache`, {
     headers: getHeaders(),
