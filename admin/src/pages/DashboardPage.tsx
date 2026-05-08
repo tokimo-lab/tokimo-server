@@ -407,9 +407,9 @@ function DashboardPage() {
   );
 
   const pieData = useMemo(() => {
-    const top = sortedProviders.slice(0, 5);
+    const top = sortedProviders.slice(0, 10);
     const otherCalls = sortedProviders
-      .slice(5)
+      .slice(10)
       .reduce((sum, p) => sum + p.calls, 0);
     return otherCalls > 0
       ? [...top, { provider: t("dashboard.charts.other"), calls: otherCalls }]
