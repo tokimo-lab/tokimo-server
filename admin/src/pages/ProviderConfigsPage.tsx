@@ -260,6 +260,15 @@ const PROVIDERS: ProviderRow[] = [
     authRequired: "no",
     envVars: [],
   },
+  {
+    key: "gestdown",
+    provider: "Gestdown (Addic7ed mirror)",
+    prefix: "/api/gestdown/...",
+    sample: "/api/gestdown/shows/search?title=Game%20of%20Thrones",
+    rateLimit: "10/s",
+    authRequired: "no",
+    envVars: [],
+  },
 ];
 
 interface FetchResult {

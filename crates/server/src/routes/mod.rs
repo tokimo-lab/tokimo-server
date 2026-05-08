@@ -7,6 +7,7 @@ pub mod deezer;
 pub mod douban;
 pub mod fanart;
 pub mod geocoding;
+pub mod gestdown;
 pub mod github;
 pub mod hitokoto;
 pub mod holiday;
@@ -67,6 +68,7 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/bing", provider_routes(bing_wallpaper::routes(), &state))
         .nest("/opensubtitles", provider_routes(opensubtitles::routes(), &state))
         .nest("/regielive", provider_routes(regielive::routes(), &state))
+        .nest("/gestdown", provider_routes(gestdown::routes(), &state))
         .fallback(api_not_found)
         .layer(middleware::from_fn_with_state(state.clone(), record_metrics))
         .with_state(state)

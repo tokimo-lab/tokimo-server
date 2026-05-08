@@ -238,6 +238,25 @@ const ENDPOINTS = [
     repeat: ["/api/regielive/search?nume=Inception", "/api/regielive/search?nume=Frozen"],
     unique: () => `/api/regielive/search?nume=${rand()}`,
   },
+  {
+    name: "gestdown.shows.search",
+    repeat: [
+      "/api/gestdown/shows/search?title=Game%20of%20Thrones",
+      "/api/gestdown/shows/search?title=Friends",
+    ],
+    unique: () => `/api/gestdown/shows/search?title=${rand()}`,
+  },
+  {
+    name: "gestdown.subtitles",
+    repeat: [
+      "/api/gestdown/subtitles?show_id=4d6f3c4a-37b3-43e1-8f9e-1f1f1f1f1f1f&season=1&episode=1&lang=English",
+    ],
+    unique: () => {
+      const s = 1 + Math.floor(Math.random() * 10);
+      const e = 1 + Math.floor(Math.random() * 24);
+      return `/api/gestdown/subtitles?show_id=${rand()}&season=${s}&episode=${e}&lang=English`;
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
