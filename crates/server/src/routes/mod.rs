@@ -21,7 +21,7 @@ pub mod thetvdb;
 pub mod tmdb;
 pub mod wikipedia;
 
-use axum::{middleware, routing::get, Router};
+use axum::{http::StatusCode, middleware, routing::get, Router};
 
 use crate::{
     middleware::{admin_auth, record_metrics, service_auth},
@@ -57,13 +57,17 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/geocoding", provider_routes(geocoding::routes(), &state))
         .nest("/assrt", provider_routes(assrt::routes(), &state))
         .nest("/github", provider_routes(github::routes(), &state))
+        .fallback(api_not_found)
+        .layer(middleware::from_fn_with_state(state.clone(), record_metrics))
         .with_state(state)
 }
 
+async fn api_not_found() -> (StatusCode, &'static str) {
+    (StatusCode::NOT_FOUND, "Not Found")
+}
+
 fn provider_routes(routes: Router<AppState>, state: &AppState) -> Router<AppState> {
-    routes
-        .route_layer(middleware::from_fn_with_state(state.clone(), record_metrics))
-        .route_layer(middleware::from_fn_with_state(state.clone(), service_auth))
+    routes.route_layer(middleware::from_fn_with_state(state.clone(), service_auth))
 }
 
 async fn health() -> &'static str {
