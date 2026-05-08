@@ -61,7 +61,36 @@ async fn main() -> anyhow::Result<()> {
         http,
         config: config.clone(),
         metrics: Arc::new(MetricsStore::new()),
+        provider_configs: Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
     };
+
+    // Seed provider_configs with registry defaults; existing rows kept untouched.
+    {
+        use sea_orm::{sea_query::OnConflict, EntityTrait};
+        for meta in tokimo_server::providers_registry::REGISTRY.iter() {
+            let am = tokimo_server::db::entities::provider_configs::ActiveModel {
+                key: sea_orm::Set(meta.key.to_string()),
+                ttl_seconds: sea_orm::Set(meta.default_ttl_seconds as i32),
+                enabled: sea_orm::Set(true),
+                updated_at: sea_orm::Set(chrono::Utc::now().into()),
+            };
+            tokimo_server::db::entities::ProviderConfigs::insert(am)
+                .on_conflict(
+                    OnConflict::column(
+                        tokimo_server::db::entities::provider_configs::Column::Key,
+                    )
+                    .do_nothing()
+                    .to_owned(),
+                )
+                .do_nothing()
+                .exec(&db)
+                .await?;
+        }
+    }
+    state
+        .reload_provider_configs()
+        .await
+        .map_err(|e| anyhow::anyhow!("failed to load provider_configs: {:?}", e))?;
 
     // Spawn sports prewarm task
     tokio::spawn(routes::sports::prewarm_task(state.clone()));
