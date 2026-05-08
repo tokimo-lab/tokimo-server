@@ -4,6 +4,7 @@ pub mod error;
 pub mod infra;
 pub mod metrics;
 pub mod middleware;
+pub mod providers_registry;
 pub mod routes;
 
 pub use config::AppConfig;

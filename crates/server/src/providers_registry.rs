@@ -1,0 +1,413 @@
+//! Static registry of all upstream providers proxied by tokimo-server.
+//!
+//! The registry is the single source of truth for provider metadata
+//! (key, category, sample URL, env keys, default cache TTL, …). Runtime
+//! overrides (per-provider TTL / enabled flag) live in the
+//! `provider_configs` DB table and are loaded into [`AppState`] at startup.
+//!
+//! `default_ttl_seconds` is sourced from each route's existing
+//! `CACHE_TTL_SECONDS` constant where one exists. Routes that do not have
+//! a single per-route cache constant fall back to the conventional 12h
+//! used by most metadata providers in this codebase. A value of `0` means
+//! "no per-row freshness check" (caching is delegated to the response /
+//! generic cache layer).
+
+use serde::Serialize;
+
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AuthRequired {
+    Yes,
+    Optional,
+    No,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ProviderMeta {
+    pub key: &'static str,
+    pub category: &'static str,
+    pub prefix: &'static str,
+    pub sample: &'static str,
+    pub rate_limit: &'static str,
+    pub auth_required: AuthRequired,
+    pub env_keys: &'static [&'static str],
+    pub default_ttl_seconds: i64,
+    pub i18n_name_key: &'static str,
+    pub i18n_desc_key: &'static str,
+}
+
+const HALF_DAY: i64 = 12 * 60 * 60;
+const ONE_DAY: i64 = 24 * 60 * 60;
+const SIX_HOURS: i64 = 6 * 60 * 60;
+const FOUR_HOURS: i64 = 4 * 60 * 60;
+const ONE_HOUR: i64 = 60 * 60;
+const HALF_HOUR: i64 = 30 * 60;
+
+pub const REGISTRY: &[ProviderMeta] = &[
+    // ---- 影视元数据 ----
+    ProviderMeta {
+        key: "tmdb",
+        category: "metadata",
+        prefix: "/api/tmdb/...",
+        sample: "/api/tmdb/movie/550",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["TMDB_API_KEY"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.tmdb.name",
+        i18n_desc_key: "providers.tmdb.description",
+    },
+    ProviderMeta {
+        key: "omdb",
+        category: "metadata",
+        prefix: "/api/omdb/...",
+        sample: "/api/omdb/title/tt1375666",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["OMDB_API_KEY"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.omdb.name",
+        i18n_desc_key: "providers.omdb.description",
+    },
+    ProviderMeta {
+        key: "thetvdb",
+        category: "metadata",
+        prefix: "/api/thetvdb/...",
+        sample: "/api/thetvdb/series/121361",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["THETVDB_API_KEY"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.thetvdb.name",
+        i18n_desc_key: "providers.thetvdb.description",
+    },
+    ProviderMeta {
+        key: "bangumi",
+        category: "metadata",
+        prefix: "/api/bangumi/...",
+        sample: "/api/bangumi/subject/8",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["BANGUMI_USER_AGENT"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.bangumi.name",
+        i18n_desc_key: "providers.bangumi.description",
+    },
+    ProviderMeta {
+        key: "fanart",
+        category: "metadata",
+        prefix: "/api/fanart/...",
+        sample: "/api/fanart/movie/550",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["FANART_API_KEY"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.fanart.name",
+        i18n_desc_key: "providers.fanart.description",
+    },
+    ProviderMeta {
+        key: "douban",
+        category: "metadata",
+        prefix: "/api/douban/...",
+        sample: "/api/douban/search?q=%E8%82%96%E7%94%B3%E5%85%8B",
+        rate_limit: "1/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.douban.name",
+        i18n_desc_key: "providers.douban.description",
+    },
+    // ---- 音乐 ----
+    ProviderMeta {
+        key: "spotify",
+        category: "music",
+        prefix: "/api/spotify/...",
+        sample: "/api/spotify/track/4uLU6hMCjMI75M1A2tKUQC",
+        rate_limit: "30/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.spotify.name",
+        i18n_desc_key: "providers.spotify.description",
+    },
+    ProviderMeta {
+        key: "musicbrainz",
+        category: "music",
+        prefix: "/api/musicbrainz/...",
+        sample: "/api/musicbrainz/artist/cc197bad-dc9c-440d-a5b5-d52ba2e14234",
+        rate_limit: "1/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["MUSICBRAINZ_USER_AGENT"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.musicbrainz.name",
+        i18n_desc_key: "providers.musicbrainz.description",
+    },
+    ProviderMeta {
+        key: "deezer",
+        category: "music",
+        prefix: "/api/deezer/...",
+        sample: "/api/deezer/track/3135556",
+        rate_limit: "30/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.deezer.name",
+        i18n_desc_key: "providers.deezer.description",
+    },
+    ProviderMeta {
+        key: "lrclib",
+        category: "music",
+        prefix: "/api/lrclib/...",
+        sample: "/api/lrclib/get?artist=Coldplay&track=Yellow",
+        rate_limit: "30/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.lrclib.name",
+        i18n_desc_key: "providers.lrclib.description",
+    },
+    // ---- 书籍 / 百科 ----
+    ProviderMeta {
+        key: "qidian",
+        category: "book",
+        prefix: "/api/qidian/...",
+        sample: "/api/qidian/search?q=%E6%96%97%E7%A0%B4%E8%8B%8D%E7%A9%B9",
+        rate_limit: "1/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.qidian.name",
+        i18n_desc_key: "providers.qidian.description",
+    },
+    ProviderMeta {
+        key: "wikipedia",
+        category: "book",
+        prefix: "/api/wikipedia/summary",
+        sample: "/api/wikipedia/summary?title=Linux&lang=en",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.wikipedia.name",
+        i18n_desc_key: "providers.wikipedia.description",
+    },
+    // ---- 地理 / 天气 ----
+    ProviderMeta {
+        key: "openmeteo",
+        category: "geo",
+        prefix: "/api/openmeteo/...",
+        sample: "/api/openmeteo/forecast?lat=40.71&lon=-74.01&days=3",
+        rate_limit: "100/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.openmeteo.name",
+        i18n_desc_key: "providers.openmeteo.description",
+    },
+    ProviderMeta {
+        key: "nominatim",
+        category: "geo",
+        prefix: "/api/nominatim/...",
+        sample: "/api/nominatim/search?q=Brandenburg+Gate",
+        rate_limit: "1/s (TOS)",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["NOMINATIM_USER_AGENT"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.nominatim.name",
+        i18n_desc_key: "providers.nominatim.description",
+    },
+    ProviderMeta {
+        key: "geocoding",
+        category: "geo",
+        prefix: "/api/geocoding/...",
+        sample: "/api/geocoding/forward?q=Berlin",
+        rate_limit: "30/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["NOMINATIM_USER_AGENT"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.geocoding.name",
+        i18n_desc_key: "providers.geocoding.description",
+    },
+    ProviderMeta {
+        key: "holiday",
+        category: "geo",
+        prefix: "/api/holiday/:country/:year",
+        sample: "/api/holiday/US/2024",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.holiday.name",
+        i18n_desc_key: "providers.holiday.description",
+    },
+    // ---- 字幕 ----
+    ProviderMeta {
+        key: "assrt",
+        category: "subtitle",
+        prefix: "/api/assrt/...",
+        sample: "/api/assrt/search?q=Inception",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["ASSRT_API_KEY"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.assrt.name",
+        i18n_desc_key: "providers.assrt.description",
+    },
+    ProviderMeta {
+        key: "opensubtitles",
+        category: "subtitle",
+        prefix: "/api/opensubtitles/search",
+        sample: "/api/opensubtitles/search?imdb_id=tt1375666&languages=en,zh-cn",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &["OPENSUBTITLES_API_KEY"],
+        default_ttl_seconds: SIX_HOURS,
+        i18n_name_key: "providers.opensubtitles.name",
+        i18n_desc_key: "providers.opensubtitles.description",
+    },
+    ProviderMeta {
+        key: "regielive",
+        category: "subtitle",
+        prefix: "/api/regielive/search",
+        sample: "/api/regielive/search?nume=Inception",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.regielive.name",
+        i18n_desc_key: "providers.regielive.description",
+    },
+    ProviderMeta {
+        key: "gestdown",
+        category: "subtitle",
+        prefix: "/api/gestdown/...",
+        sample: "/api/gestdown/shows/search?title=Game%20of%20Thrones",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.gestdown.name",
+        i18n_desc_key: "providers.gestdown.description",
+    },
+    ProviderMeta {
+        key: "shooter",
+        category: "subtitle",
+        prefix: "/api/shooter/search",
+        sample: "/api/shooter/search?filehash=8b9f1234abcd;1234567890abcdef;abcdef0123456789;0011223344556677&pathinfo=video.mkv&lang=chn",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.shooter.name",
+        i18n_desc_key: "providers.shooter.description",
+    },
+    ProviderMeta {
+        key: "animetosho",
+        category: "subtitle",
+        prefix: "/api/animetosho/...",
+        sample: "/api/animetosho/search?q=Frieren",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.animetosho.name",
+        i18n_desc_key: "providers.animetosho.description",
+    },
+    // ---- 热搜 / 体育 ----
+    ProviderMeta {
+        key: "hot",
+        category: "news",
+        prefix: "/api/hot/list",
+        sample: "/api/hot/list?id=bilibili",
+        rate_limit: "per-source",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        // sources have their own per-source freshness windows; the route
+        // does not expose a single CACHE_TTL_SECONDS — keep the default
+        // half-day hint for the registry.
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.hot.name",
+        i18n_desc_key: "providers.hot.description",
+    },
+    ProviderMeta {
+        key: "sports",
+        category: "sports",
+        prefix: "/api/sports/schedule",
+        sample: "/api/sports/schedule?type=hot&date={TODAY}",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        // sports.rs uses a 60s in-memory cache (see comment in route).
+        default_ttl_seconds: 60,
+        i18n_name_key: "providers.sports.name",
+        i18n_desc_key: "providers.sports.description",
+    },
+    // ---- 汇率 ----
+    ProviderMeta {
+        key: "currency",
+        category: "currency",
+        prefix: "/api/currency/rates",
+        sample: "/api/currency/rates?targets=CNY,EUR,JPY",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::Yes,
+        env_keys: &[],
+        default_ttl_seconds: FOUR_HOURS,
+        i18n_name_key: "providers.currency.name",
+        i18n_desc_key: "providers.currency.description",
+    },
+    // ---- 工具 ----
+    ProviderMeta {
+        key: "github",
+        category: "tools",
+        prefix: "/api/github/releases/...",
+        sample: "/api/github/releases/rust-lang/rust/latest",
+        rate_limit: "30/s",
+        auth_required: AuthRequired::Optional,
+        env_keys: &["GITHUB_TOKEN"],
+        default_ttl_seconds: HALF_DAY,
+        i18n_name_key: "providers.github.name",
+        i18n_desc_key: "providers.github.description",
+    },
+    // ---- 名言 ----
+    ProviderMeta {
+        key: "hitokoto",
+        category: "quote",
+        prefix: "/api/hitokoto/sentence",
+        sample: "/api/hitokoto/sentence?c=a",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: ONE_HOUR,
+        i18n_name_key: "providers.hitokoto.name",
+        i18n_desc_key: "providers.hitokoto.description",
+    },
+    ProviderMeta {
+        key: "zenquotes",
+        category: "quote",
+        prefix: "/api/zenquotes/random",
+        sample: "/api/zenquotes/random",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: HALF_HOUR,
+        i18n_name_key: "providers.zenquotes.name",
+        i18n_desc_key: "providers.zenquotes.description",
+    },
+    // ---- 壁纸 ----
+    ProviderMeta {
+        key: "bing",
+        category: "wallpaper",
+        prefix: "/api/bing/wallpaper",
+        sample: "/api/bing/wallpaper?mkt=zh-CN&n=1&idx=0",
+        rate_limit: "10/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: ONE_DAY,
+        i18n_name_key: "providers.bing.name",
+        i18n_desc_key: "providers.bing.description",
+    },
+];
+
+pub fn lookup(key: &str) -> Option<&'static ProviderMeta> {
+    REGISTRY.iter().find(|p| p.key == key)
+}
