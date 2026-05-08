@@ -12,16 +12,15 @@ impl MigrationTrait for Migration {
                     .table(ProviderConfigs::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(ProviderConfigs::Provider)
+                        ColumnDef::new(ProviderConfigs::Key)
                             .text()
                             .not_null()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(ProviderConfigs::Config)
-                            .json_binary()
-                            .not_null()
-                            .extra("DEFAULT '{}'::jsonb"),
+                        ColumnDef::new(ProviderConfigs::TtlSeconds)
+                            .integer()
+                            .not_null(),
                     )
                     .col(
                         ColumnDef::new(ProviderConfigs::Enabled)
@@ -50,8 +49,9 @@ impl MigrationTrait for Migration {
 #[derive(DeriveIden)]
 enum ProviderConfigs {
     Table,
-    Provider,
-    Config,
+    Key,
+    TtlSeconds,
     Enabled,
     UpdatedAt,
 }
+
