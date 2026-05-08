@@ -11,17 +11,8 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(ProviderConfigs::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(ProviderConfigs::Key)
-                            .text()
-                            .not_null()
-                            .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(ProviderConfigs::TtlSeconds)
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(ProviderConfigs::Key).text().not_null().primary_key())
+                    .col(ColumnDef::new(ProviderConfigs::TtlSeconds).integer().not_null())
                     .col(
                         ColumnDef::new(ProviderConfigs::Enabled)
                             .boolean()
@@ -54,4 +45,3 @@ enum ProviderConfigs {
     Enabled,
     UpdatedAt,
 }
-

@@ -76,11 +76,9 @@ async fn main() -> anyhow::Result<()> {
             };
             tokimo_server::db::entities::ProviderConfigs::insert(am)
                 .on_conflict(
-                    OnConflict::column(
-                        tokimo_server::db::entities::provider_configs::Column::Key,
-                    )
-                    .do_nothing()
-                    .to_owned(),
+                    OnConflict::column(tokimo_server::db::entities::provider_configs::Column::Key)
+                        .do_nothing()
+                        .to_owned(),
                 )
                 .do_nothing()
                 .exec(&db)
