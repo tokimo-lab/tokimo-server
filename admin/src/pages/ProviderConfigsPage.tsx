@@ -393,7 +393,7 @@ function ProviderConfigsPage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl">
+    <div className="mx-auto w-full max-w-7xl flex flex-col gap-4">
       {contextHolder}
       <header className="mb-4">
         <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
