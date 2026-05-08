@@ -208,6 +208,7 @@ struct ProviderResponseItem {
     env_keys: Vec<String>,
     env_status: std::collections::HashMap<String, bool>,
     ttl_seconds: i64,
+    has_ttl: bool,
     enabled: bool,
     i18n_name_key: String,
     i18n_desc_key: String,
@@ -236,6 +237,7 @@ async fn list_providers(State(state): State<AppState>) -> AppResult<Json<Vec<Pro
             env_keys: meta.env_keys.iter().map(|s| (*s).to_string()).collect(),
             env_status,
             ttl_seconds: runtime.map(|r| r.ttl_seconds).unwrap_or(meta.default_ttl_seconds),
+            has_ttl: meta.has_ttl,
             enabled: runtime.map(|r| r.enabled).unwrap_or(true),
             i18n_name_key: meta.i18n_name_key.to_string(),
             i18n_desc_key: meta.i18n_desc_key.to_string(),
@@ -255,8 +257,13 @@ async fn patch_provider(
     Path(key): Path<String>,
     Json(req): Json<PatchProviderRequest>,
 ) -> AppResult<Json<serde_json::Value>> {
-    if crate::providers_registry::lookup(&key).is_none() {
-        return Err(AppError::BadRequest(format!("unknown provider: {}", key)));
+    let meta = crate::providers_registry::lookup(&key)
+        .ok_or_else(|| AppError::BadRequest(format!("unknown provider: {}", key)))?;
+    if req.ttl_seconds.is_some() && !meta.has_ttl {
+        return Err(AppError::BadRequest(format!(
+            "provider '{}' has no configurable TTL",
+            key
+        )));
     }
     if let Some(t) = req.ttl_seconds {
         if !(0..=7 * 24 * 60 * 60).contains(&t) {
