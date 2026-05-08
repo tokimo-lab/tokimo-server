@@ -395,7 +395,7 @@ function ProviderConfigsPage() {
   return (
     <div className="mx-auto w-full max-w-7xl">
       {contextHolder}
-      <header className="mb-8">
+      <header className="mb-4">
         <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
           {t("providers.title")}
         </h1>
@@ -404,13 +404,13 @@ function ProviderConfigsPage() {
         </p>
       </header>
       <Alert
-        className="mb-6"
+        className="mb-4"
         type="info"
         showIcon
         message={t("providers.readOnlyTitle")}
         description={t("providers.readOnlyDescription")}
       />
-      <div className="mb-6 flex w-full gap-2">
+      <div className="mb-4 flex w-full gap-2">
         <Input
           addonBefore={t("providers.serviceKey.label")}
           placeholder={t("providers.serviceKey.placeholder")}
@@ -427,8 +427,10 @@ function ProviderConfigsPage() {
         dataSource={PROVIDERS}
         columns={columns}
         pagination={false}
-        scroll={{ x: 960 }}
-        className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark [&_.ant-table-tbody>tr>td]:py-3"
+        size="small"
+        sticky
+        scroll={{ x: 960, y: "calc(100vh - 320px)" }}
+        className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark"
       />
       <Suspense fallback={<Spin />}>
         <ServiceKeyPromptModal

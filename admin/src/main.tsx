@@ -52,6 +52,15 @@ function LocalizedRoot() {
           boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
           boxShadowSecondary: "0 2px 8px rgba(0,0,0,0.06)",
         },
+        components: {
+          Table: {
+            cellPaddingBlock: 8,
+            cellPaddingInline: 12,
+            cellPaddingBlockSM: 6,
+            cellPaddingInlineSM: 10,
+            headerBg: isDark ? "#111114" : "#fafafa",
+          },
+        },
       }}
     >
       <AntdApp>

@@ -242,7 +242,7 @@ function CacheInspectorPage() {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-8 py-8">
-      <header className="mb-8">
+      <header className="mb-4">
         <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
           {t("cache.title")}
         </h1>
@@ -251,7 +251,7 @@ function CacheInspectorPage() {
         </p>
       </header>
 
-      <section className="mb-6">
+      <section className="mb-4">
         <div className="flex flex-wrap items-center gap-3">
           <Select
             className="min-w-72"
@@ -289,13 +289,15 @@ function CacheInspectorPage() {
         </div>
       </section>
 
-      <section className="mb-6">
+      <section className="mb-4">
         <Table
           rowKey="id"
           columns={columns}
           dataSource={filteredRows}
           loading={rowsLoading}
-          scroll={{ x: 1180 }}
+          size="small"
+          sticky
+          scroll={{ x: 1180, y: "calc(100vh - 360px)" }}
           pagination={{
             current: page,
             pageSize: PAGE_SIZE,
@@ -303,7 +305,7 @@ function CacheInspectorPage() {
             total: selectedTable?.row_count ?? 0,
             onChange: (nextPage) => setPage(nextPage),
           }}
-          className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark [&_.ant-table-tbody>tr>td]:py-3"
+          className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark"
         />
       </section>
 
