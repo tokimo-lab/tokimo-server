@@ -34,6 +34,7 @@ pub mod tmdb_images;
 pub mod tmdb_movies;
 pub mod tmdb_objects;
 pub mod wikipedia_summaries;
+pub mod zenquotes_cache;
 
 pub use assets::Entity as Assets;
 pub use assrt_searches::Entity as AssrtSearches;
@@ -71,3 +72,4 @@ pub use tmdb_images::Entity as TmdbImages;
 pub use tmdb_movies::Entity as TmdbMovies;
 pub use tmdb_objects::Entity as TmdbObjects;
 pub use wikipedia_summaries::Entity as WikipediaSummaries;
+pub use zenquotes_cache::Entity as ZenquotesCache;

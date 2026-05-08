@@ -205,6 +205,11 @@ const ENDPOINTS = [
       return `/api/hitokoto/sentence?c=${pick(cats)}`;
     },
   },
+  {
+    name: "zenquotes.random",
+    repeat: ["/api/zenquotes/random"],
+    unique: () => "/api/zenquotes/random",
+  },
 ];
 
 // ---------------------------------------------------------------------------

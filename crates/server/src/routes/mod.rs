@@ -21,6 +21,7 @@ pub mod spotify;
 pub mod thetvdb;
 pub mod tmdb;
 pub mod wikipedia;
+pub mod zenquotes;
 
 use axum::{http::StatusCode, middleware, routing::get, Router};
 
@@ -59,6 +60,7 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/assrt", provider_routes(assrt::routes(), &state))
         .nest("/github", provider_routes(github::routes(), &state))
         .nest("/hitokoto", provider_routes(hitokoto::routes(), &state))
+        .nest("/zenquotes", provider_routes(zenquotes::routes(), &state))
         .fallback(api_not_found)
         .layer(middleware::from_fn_with_state(state.clone(), record_metrics))
         .with_state(state)

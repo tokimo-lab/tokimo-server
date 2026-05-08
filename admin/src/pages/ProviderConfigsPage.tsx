@@ -224,6 +224,15 @@ const PROVIDERS: ProviderRow[] = [
     authRequired: "no",
     envVars: [],
   },
+  {
+    key: "zenquotes",
+    provider: "ZenQuotes",
+    prefix: "/api/zenquotes/random",
+    sample: "/api/zenquotes/random",
+    rateLimit: "10/s",
+    authRequired: "no",
+    envVars: [],
+  },
 ];
 
 interface FetchResult {

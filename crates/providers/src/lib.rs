@@ -21,6 +21,7 @@ pub mod spotify;
 pub mod thetvdb;
 pub mod tmdb;
 pub mod wikipedia;
+pub mod zenquotes;
 
 pub use baidu_hot::*;
 pub use baidu_sports::*;
