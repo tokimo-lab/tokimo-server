@@ -30,6 +30,7 @@ mod m20250101_000033_create_geocoding_results;
 mod m20250101_000040_create_assrt;
 mod m20250101_000041_create_github_releases;
 mod m20250101_000050_create_currency_rates;
+mod m20250101_000060_create_hitokoto_cache;
 
 pub struct Migrator;
 
@@ -67,6 +68,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250101_000040_create_assrt::Migration),
             Box::new(m20250101_000041_create_github_releases::Migration),
             Box::new(m20250101_000050_create_currency_rates::Migration),
+            Box::new(m20250101_000060_create_hitokoto_cache::Migration),
         ]
     }
 }

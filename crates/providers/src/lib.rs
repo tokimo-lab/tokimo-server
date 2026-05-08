@@ -9,6 +9,7 @@ pub mod douban;
 pub mod fanart;
 pub mod geocoding;
 pub mod github_releases;
+pub mod hitokoto;
 pub mod holiday;
 pub mod lrclib;
 pub mod musicbrainz;

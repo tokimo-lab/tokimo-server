@@ -215,6 +215,15 @@ const PROVIDERS: ProviderRow[] = [
     authRequired: "no",
     envVars: [],
   },
+  {
+    key: "hitokoto",
+    provider: "Hitokoto (一言)",
+    prefix: "/api/hitokoto/sentence",
+    sample: "/api/hitokoto/sentence?c=a",
+    rateLimit: "10/s",
+    authRequired: "no",
+    envVars: [],
+  },
 ];
 
 interface FetchResult {

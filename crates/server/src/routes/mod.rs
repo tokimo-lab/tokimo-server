@@ -7,6 +7,7 @@ pub mod douban;
 pub mod fanart;
 pub mod geocoding;
 pub mod github;
+pub mod hitokoto;
 pub mod holiday;
 pub mod hot;
 pub mod lrclib;
@@ -57,6 +58,7 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/geocoding", provider_routes(geocoding::routes(), &state))
         .nest("/assrt", provider_routes(assrt::routes(), &state))
         .nest("/github", provider_routes(github::routes(), &state))
+        .nest("/hitokoto", provider_routes(hitokoto::routes(), &state))
         .fallback(api_not_found)
         .layer(middleware::from_fn_with_state(state.clone(), record_metrics))
         .with_state(state)
