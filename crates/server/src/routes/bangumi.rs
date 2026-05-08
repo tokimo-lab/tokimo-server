@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Path, Query, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -9,6 +12,7 @@ use tokimo_providers::bangumi;
 
 use crate::{
     db::entities::{bangumi_subjects, BangumiSubjects},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -28,13 +32,14 @@ fn require_user_agent(state: &AppState) -> AppResult<String> {
         .unwrap_or_else(|| "tokimo-server/1.0 (https://github.com/tokimo-lab/tokimo-server)".to_string()))
 }
 
-async fn get_subject(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Json<serde_json::Value>> {
+async fn get_subject(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Response> {
+    let started = Instant::now();
     if let Some(row) = BangumiSubjects::find_by_id(id)
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "bangumi", started, Json(row.raw_json)));
     }
 
     let ua = require_user_agent(&state)?;
@@ -74,7 +79,7 @@ async fn get_subject(State(state): State<AppState>, Path(id): Path<i64>) -> AppR
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
 #[derive(Deserialize)]

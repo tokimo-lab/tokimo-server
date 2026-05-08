@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Path, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -10,6 +13,7 @@ use crate::{
     db::entities::{
         thetvdb_episodes, thetvdb_series, thetvdb_token_cache, ThetvdbEpisodes, ThetvdbSeries, ThetvdbTokenCache,
     },
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -96,13 +100,14 @@ async fn ensure_token(state: &AppState) -> AppResult<String> {
     Ok(token)
 }
 
-async fn get_series(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Json<serde_json::Value>> {
+async fn get_series(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Response> {
+    let started = Instant::now();
     if let Some(row) = ThetvdbSeries::find_by_id(id)
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "thetvdb", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("thetvdb").await?;
@@ -146,10 +151,11 @@ async fn get_series(State(state): State<AppState>, Path(id): Path<i64>) -> AppRe
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
-async fn get_series_episodes(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Json<serde_json::Value>> {
+async fn get_series_episodes(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Response> {
+    let started = Instant::now();
     if let Some(row) = ThetvdbSeries::find_by_id(id)
         .one(&state.db)
         .await
@@ -157,7 +163,7 @@ async fn get_series_episodes(State(state): State<AppState>, Path(id): Path<i64>)
     {
         if let Some(ep_json) = row.episodes_raw_json.clone() {
             if row.episodes_fetched_at.is_some() {
-                return Ok(Json(ep_json));
+                return Ok(cache_hit_response(&state, "thetvdb", started, Json(ep_json)));
             }
         }
     }
@@ -220,16 +226,17 @@ async fn get_series_episodes(State(state): State<AppState>, Path(id): Path<i64>)
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
-async fn get_episode(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Json<serde_json::Value>> {
+async fn get_episode(State(state): State<AppState>, Path(id): Path<i64>) -> AppResult<Response> {
+    let started = Instant::now();
     if let Some(row) = ThetvdbEpisodes::find_by_id(id)
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "thetvdb", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("thetvdb").await?;
@@ -268,5 +275,5 @@ async fn get_episode(State(state): State<AppState>, Path(id): Path<i64>) -> AppR
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }

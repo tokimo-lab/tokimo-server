@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Path, Query, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -12,6 +15,7 @@ use crate::{
         musicbrainz_artists, musicbrainz_recordings, musicbrainz_releases, MusicbrainzArtists, MusicbrainzRecordings,
         MusicbrainzReleases,
     },
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -33,13 +37,14 @@ fn user_agent(state: &AppState) -> String {
         .unwrap_or_else(|| DEFAULT_USER_AGENT.to_string())
 }
 
-async fn get_artist(State(state): State<AppState>, Path(mbid): Path<String>) -> AppResult<Json<serde_json::Value>> {
+async fn get_artist(State(state): State<AppState>, Path(mbid): Path<String>) -> AppResult<Response> {
+    let started = Instant::now();
     if let Some(row) = MusicbrainzArtists::find_by_id(mbid.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "musicbrainz", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("musicbrainz").await?;
@@ -77,16 +82,17 @@ async fn get_artist(State(state): State<AppState>, Path(mbid): Path<String>) -> 
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
-async fn get_release(State(state): State<AppState>, Path(mbid): Path<String>) -> AppResult<Json<serde_json::Value>> {
+async fn get_release(State(state): State<AppState>, Path(mbid): Path<String>) -> AppResult<Response> {
+    let started = Instant::now();
     if let Some(row) = MusicbrainzReleases::find_by_id(mbid.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "musicbrainz", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("musicbrainz").await?;
@@ -124,16 +130,17 @@ async fn get_release(State(state): State<AppState>, Path(mbid): Path<String>) ->
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
-async fn get_recording(State(state): State<AppState>, Path(mbid): Path<String>) -> AppResult<Json<serde_json::Value>> {
+async fn get_recording(State(state): State<AppState>, Path(mbid): Path<String>) -> AppResult<Response> {
+    let started = Instant::now();
     if let Some(row) = MusicbrainzRecordings::find_by_id(mbid.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "musicbrainz", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("musicbrainz").await?;
@@ -171,7 +178,7 @@ async fn get_recording(State(state): State<AppState>, Path(mbid): Path<String>) 
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
 #[derive(Deserialize)]

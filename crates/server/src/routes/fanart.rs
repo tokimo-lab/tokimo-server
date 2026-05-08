@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Path, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -8,6 +11,7 @@ use tokimo_providers::fanart;
 
 use crate::{
     db::entities::{fanart_assets, FanartAssets},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -25,13 +29,13 @@ fn require_key(state: &AppState) -> AppResult<String> {
         .ok_or_else(|| AppError::Internal("FANART_API_KEY not configured".into()))
 }
 
-async fn fetch_or_cache(state: AppState, kind: &'static str, foreign_id: i64) -> AppResult<serde_json::Value> {
+async fn fetch_or_cache(state: AppState, started: Instant, kind: &'static str, foreign_id: i64) -> AppResult<Response> {
     if let Some(row) = FanartAssets::find_by_id((kind.to_string(), foreign_id))
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(row.raw_json);
+        return Ok(cache_hit_response(&state, "fanart", started, Json(row.raw_json)));
     }
 
     let api_key = require_key(&state)?;
@@ -77,13 +81,15 @@ async fn fetch_or_cache(state: AppState, kind: &'static str, foreign_id: i64) ->
         })
         .await?;
 
-    Ok(raw_json)
+    Ok(Json(raw_json).into_response())
 }
 
-async fn get_movie(State(state): State<AppState>, Path(tmdb_id): Path<i64>) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(fetch_or_cache(state, "movie", tmdb_id).await?))
+async fn get_movie(State(state): State<AppState>, Path(tmdb_id): Path<i64>) -> AppResult<Response> {
+    let started = Instant::now();
+    fetch_or_cache(state, started, "movie", tmdb_id).await
 }
 
-async fn get_tv(State(state): State<AppState>, Path(tvdb_id): Path<i64>) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(fetch_or_cache(state, "tv", tvdb_id).await?))
+async fn get_tv(State(state): State<AppState>, Path(tvdb_id): Path<i64>) -> AppResult<Response> {
+    let started = Instant::now();
+    fetch_or_cache(state, started, "tv", tvdb_id).await
 }

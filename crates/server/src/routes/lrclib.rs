@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Query, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -9,6 +12,7 @@ use tokimo_providers::lrclib;
 
 use crate::{
     db::entities::{lrclib_lyrics, LrclibLyrics},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -26,7 +30,8 @@ pub struct GetQuery {
     pub duration: Option<u32>,
 }
 
-async fn get_lyrics(State(state): State<AppState>, Query(q): Query<GetQuery>) -> AppResult<Json<serde_json::Value>> {
+async fn get_lyrics(State(state): State<AppState>, Query(q): Query<GetQuery>) -> AppResult<Response> {
+    let started = Instant::now();
     let key = lrclib::cache_key(&q.artist, &q.track, q.album.as_deref(), q.duration);
 
     if let Some(row) = LrclibLyrics::find_by_id(key.clone())
@@ -34,7 +39,7 @@ async fn get_lyrics(State(state): State<AppState>, Query(q): Query<GetQuery>) ->
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "lrclib", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("lrclib").await?;
@@ -79,7 +84,7 @@ async fn get_lyrics(State(state): State<AppState>, Query(q): Query<GetQuery>) ->
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
 #[derive(Deserialize)]

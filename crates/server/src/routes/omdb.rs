@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Path, Query, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -9,6 +12,7 @@ use tokimo_providers::omdb;
 
 use crate::{
     db::entities::{omdb_titles, OmdbTitles},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -26,13 +30,14 @@ fn require_key(state: &AppState) -> AppResult<String> {
         .ok_or_else(|| AppError::Internal("OMDB_API_KEY not configured".into()))
 }
 
-async fn get_title(State(state): State<AppState>, Path(imdb_id): Path<String>) -> AppResult<Json<serde_json::Value>> {
+async fn get_title(State(state): State<AppState>, Path(imdb_id): Path<String>) -> AppResult<Response> {
+    let started = Instant::now();
     if let Some(row) = OmdbTitles::find_by_id(imdb_id.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "omdb", started, Json(row.raw_json)));
     }
 
     let api_key = require_key(&state)?;
@@ -73,7 +78,7 @@ async fn get_title(State(state): State<AppState>, Path(imdb_id): Path<String>) -
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
 #[derive(Deserialize)]

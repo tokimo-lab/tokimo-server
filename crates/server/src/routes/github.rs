@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Path, Query, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -9,6 +12,7 @@ use tokimo_providers::github_releases;
 
 use crate::{
     db::entities::{github_releases as github_releases_entity, GithubReleases},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -18,10 +22,8 @@ pub fn routes() -> Router<AppState> {
         .route("/releases/:owner/:repo/list", get(get_list))
 }
 
-async fn get_latest(
-    State(state): State<AppState>,
-    Path((owner, repo)): Path<(String, String)>,
-) -> AppResult<Json<serde_json::Value>> {
+async fn get_latest(State(state): State<AppState>, Path((owner, repo)): Path<(String, String)>) -> AppResult<Response> {
+    let started = Instant::now();
     let key = format!("{}/{}/latest", owner, repo);
 
     if let Some(row) = GithubReleases::find_by_id(key.clone())
@@ -29,7 +31,7 @@ async fn get_latest(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "github", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("github").await?;
@@ -78,7 +80,7 @@ async fn get_latest(
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
 #[derive(Deserialize)]

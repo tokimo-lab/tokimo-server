@@ -1,8 +1,38 @@
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::RwLock;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+use axum::response::{IntoResponse, Response};
 use serde::Serialize;
+
+use crate::AppState;
+
+/// Response extension marker that signals the `record_metrics` middleware to
+/// skip recording (the route already reported the metric explicitly).
+#[derive(Clone, Copy)]
+pub struct MetricsAlreadyRecorded;
+
+/// Record a cache-hit metric sample for `provider`. `started` should be
+/// captured at handler entry so the duration reflects the full request.
+pub fn record_cache_hit(state: &AppState, provider: &str, started: Instant) {
+    let duration_ms = started.elapsed().as_millis().min(u32::MAX as u128) as u32;
+    state.metrics.record(MetricSample {
+        ts_unix: now_unix(),
+        provider: provider.to_string(),
+        status: 200,
+        duration_ms,
+        cache_hit: true,
+    });
+}
+
+/// Build a 200 OK response from `body`, record a cache-hit metric, and tag it
+/// with [`MetricsAlreadyRecorded`] so the middleware does not double-count.
+pub fn cache_hit_response<R: IntoResponse>(state: &AppState, provider: &str, started: Instant, body: R) -> Response {
+    record_cache_hit(state, provider, started);
+    let mut resp = body.into_response();
+    resp.extensions_mut().insert(MetricsAlreadyRecorded);
+    resp
+}
 
 const RING_CAPACITY: usize = 100_000;
 

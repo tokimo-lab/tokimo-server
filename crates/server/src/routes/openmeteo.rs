@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Query, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -9,6 +12,7 @@ use tokimo_providers::open_meteo;
 
 use crate::{
     db::entities::{openmeteo_forecasts, OpenmeteoForecasts},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -30,10 +34,8 @@ fn default_days() -> u8 {
     7
 }
 
-async fn get_forecast(
-    State(state): State<AppState>,
-    Query(q): Query<ForecastQuery>,
-) -> AppResult<Json<serde_json::Value>> {
+async fn get_forecast(State(state): State<AppState>, Query(q): Query<ForecastQuery>) -> AppResult<Response> {
+    let started = Instant::now();
     let key = open_meteo::forecast_cache_key(q.lat, q.lon, q.days);
 
     if let Some(row) = OpenmeteoForecasts::find_by_id(key.clone())
@@ -41,7 +43,7 @@ async fn get_forecast(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "openmeteo", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("openmeteo").await?;
@@ -81,7 +83,7 @@ async fn get_forecast(
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
 #[derive(Deserialize)]
@@ -90,10 +92,8 @@ pub struct AirQualityQuery {
     pub lon: f64,
 }
 
-async fn get_air_quality(
-    State(state): State<AppState>,
-    Query(q): Query<AirQualityQuery>,
-) -> AppResult<Json<serde_json::Value>> {
+async fn get_air_quality(State(state): State<AppState>, Query(q): Query<AirQualityQuery>) -> AppResult<Response> {
+    let started = Instant::now();
     let key = open_meteo::air_quality_cache_key(q.lat, q.lon);
 
     if let Some(row) = OpenmeteoForecasts::find_by_id(key.clone())
@@ -101,7 +101,7 @@ async fn get_air_quality(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "openmeteo", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("openmeteo").await?;
@@ -140,5 +140,5 @@ async fn get_air_quality(
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }

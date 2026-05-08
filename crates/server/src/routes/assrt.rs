@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Path, Query, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -9,6 +12,7 @@ use tokimo_providers::assrt;
 
 use crate::{
     db::entities::{assrt_searches, assrt_sub_details, AssrtSearches, AssrtSubDetails},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -33,7 +37,8 @@ pub struct SearchQuery {
     pub pos: Option<u32>,
 }
 
-async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>) -> AppResult<Json<serde_json::Value>> {
+async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>) -> AppResult<Response> {
+    let started = Instant::now();
     let key = assrt::search_cache_key(&q.q, q.cnt, q.pos);
 
     if let Some(row) = AssrtSearches::find_by_id(key.clone())
@@ -41,7 +46,7 @@ async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "assrt", started, Json(row.raw_json)));
     }
 
     let token = require_token(&state)?;
@@ -83,16 +88,17 @@ async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>)
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
-async fn get_detail(State(state): State<AppState>, Path(id): Path<String>) -> AppResult<Json<serde_json::Value>> {
+async fn get_detail(State(state): State<AppState>, Path(id): Path<String>) -> AppResult<Response> {
+    let started = Instant::now();
     if let Some(row) = AssrtSubDetails::find_by_id(id.clone())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "assrt", started, Json(row.raw_json)));
     }
 
     let token = require_token(&state)?;
@@ -130,5 +136,5 @@ async fn get_detail(State(state): State<AppState>, Path(id): Path<String>) -> Ap
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }

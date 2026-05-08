@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Query, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -9,6 +12,7 @@ use tokimo_providers::nominatim;
 
 use crate::{
     db::entities::{nominatim_geocode, NominatimGeocode},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -43,10 +47,11 @@ fn default_lang() -> String {
     "en".to_string()
 }
 
-async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>) -> AppResult<Json<serde_json::Value>> {
+async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>) -> AppResult<Response> {
+    let started = Instant::now();
     let limit_str = q.limit.to_string();
     let key = nominatim::cache_key("search", &[("q", &q.q), ("limit", &limit_str), ("lang", &q.lang)]);
-    fetch_or_cache(state, key, "nominatim:search", move |http, ua| {
+    fetch_or_cache(state, started, key, "nominatim:search", move |http, ua| {
         let q_owned = q.q.clone();
         let lang = q.lang.clone();
         let limit = q.limit;
@@ -55,10 +60,8 @@ async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>)
     .await
 }
 
-async fn get_reverse(
-    State(state): State<AppState>,
-    Query(q): Query<ReverseQuery>,
-) -> AppResult<Json<serde_json::Value>> {
+async fn get_reverse(State(state): State<AppState>, Query(q): Query<ReverseQuery>) -> AppResult<Response> {
+    let started = Instant::now();
     let key = nominatim::cache_key(
         "reverse",
         &[
@@ -67,7 +70,7 @@ async fn get_reverse(
             ("lang", &q.lang),
         ],
     );
-    fetch_or_cache(state, key, "nominatim:reverse", move |http, ua| {
+    fetch_or_cache(state, started, key, "nominatim:reverse", move |http, ua| {
         let lang = q.lang.clone();
         let lat = q.lat;
         let lon = q.lon;
@@ -78,10 +81,11 @@ async fn get_reverse(
 
 async fn fetch_or_cache<F, Fut>(
     state: AppState,
+    started: Instant,
     key: String,
     sf_prefix: &'static str,
     fetcher: F,
-) -> AppResult<Json<serde_json::Value>>
+) -> AppResult<Response>
 where
     F: FnOnce(reqwest::Client, String) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = tokimo_core::CoreResult<serde_json::Value>> + Send,
@@ -91,7 +95,7 @@ where
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "nominatim", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("nominatim").await?;
@@ -133,5 +137,5 @@ where
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }

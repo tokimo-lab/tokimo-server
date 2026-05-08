@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Query, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -9,6 +12,7 @@ use tokimo_providers::geocoding;
 
 use crate::{
     db::entities::{geocoding_results, GeocodingResults},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -30,10 +34,8 @@ fn default_count() -> u8 {
     10
 }
 
-async fn get_forward(
-    State(state): State<AppState>,
-    Query(q): Query<ForwardQuery>,
-) -> AppResult<Json<serde_json::Value>> {
+async fn get_forward(State(state): State<AppState>, Query(q): Query<ForwardQuery>) -> AppResult<Response> {
+    let started = Instant::now();
     let key = geocoding::forward_cache_key(&q.q, q.lang.as_deref(), q.count);
 
     if let Some(row) = GeocodingResults::find_by_id(key.clone())
@@ -41,7 +43,7 @@ async fn get_forward(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "geocoding", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("geocoding").await?;
@@ -82,7 +84,7 @@ async fn get_forward(
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }
 
 #[derive(Deserialize)]
@@ -92,10 +94,8 @@ pub struct ReverseQuery {
     pub lang: Option<String>,
 }
 
-async fn get_reverse(
-    State(state): State<AppState>,
-    Query(q): Query<ReverseQuery>,
-) -> AppResult<Json<serde_json::Value>> {
+async fn get_reverse(State(state): State<AppState>, Query(q): Query<ReverseQuery>) -> AppResult<Response> {
+    let started = Instant::now();
     let key = geocoding::reverse_cache_key(q.lat, q.lon, q.lang.as_deref());
 
     if let Some(row) = GeocodingResults::find_by_id(key.clone())
@@ -103,7 +103,7 @@ async fn get_reverse(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "geocoding", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("geocoding").await?;
@@ -149,5 +149,5 @@ async fn get_reverse(
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }

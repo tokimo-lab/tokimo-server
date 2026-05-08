@@ -1,6 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Path, State},
-    response::Redirect,
+    response::{IntoResponse, Redirect, Response},
     routing::get,
     Json, Router,
 };
@@ -13,6 +15,7 @@ use tokimo_providers::{
 
 use crate::{
     db::entities::{tmdb_images, tmdb_movies, tmdb_objects, TmdbImages, TmdbMovies, TmdbObjects},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -40,7 +43,8 @@ struct MovieResponse {
     backdrop_url: Option<String>,
 }
 
-async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Json<MovieResponse>> {
+async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Response> {
+    let started = Instant::now();
     // Fast-path DB check before single-flight: avoids both a local lock and a
     // PG round-trip in the common cache-hit case.
     if let Some(movie) = TmdbMovies::find_by_id(id)
@@ -48,7 +52,8 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return movie_to_response(&state, movie).await.map(Json);
+        let resp = movie_to_response(&state, movie).await?;
+        return Ok(cache_hit_response(&state, "tmdb", started, Json(resp)));
     }
 
     // DB miss - fetch from upstream with single-flight
@@ -124,7 +129,8 @@ async fn get_movie(State(state): State<AppState>, Path(id): Path<i32>) -> AppRes
         })
         .await?;
 
-    movie_to_response(&state, movie).await.map(Json)
+    let resp = movie_to_response(&state, movie).await?;
+    Ok(Json(resp).into_response())
 }
 
 async fn movie_to_response(state: &AppState, movie: tmdb_movies::Model) -> AppResult<MovieResponse> {
@@ -166,16 +172,17 @@ async fn movie_to_response(state: &AppState, movie: tmdb_movies::Model) -> AppRe
 
 async fn fetch_or_cache_object(
     state: &AppState,
+    started: Instant,
     kind: &'static str,
     key: String,
     upstream: impl FnOnce(reqwest::Client, String) -> futures_util_compat::BoxFut + Send + 'static,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<Response> {
     if let Some(obj) = TmdbObjects::find_by_id((kind.to_string(), key.clone()))
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(obj.raw_json);
+        return Ok(cache_hit_response(state, "tmdb", started, Json(obj.raw_json)));
     }
 
     let api_key = state
@@ -221,7 +228,7 @@ async fn fetch_or_cache_object(
         })
         .await?;
 
-    Ok(raw_json)
+    Ok(Json(raw_json).into_response())
 }
 
 mod futures_util_compat {
@@ -230,45 +237,44 @@ mod futures_util_compat {
     pub type BoxFut = Pin<Box<dyn Future<Output = tokimo_core::CoreResult<serde_json::Value>> + Send>>;
 }
 
-async fn get_tv(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Json<serde_json::Value>> {
-    let v = fetch_or_cache_object(&state, "tv", id.to_string(), move |http, api_key| {
+async fn get_tv(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Response> {
+    let started = Instant::now();
+    fetch_or_cache_object(&state, started, "tv", id.to_string(), move |http, api_key| {
         Box::pin(async move { tokimo_providers::tmdb::fetch_tv(&http, &api_key, id).await })
     })
-    .await?;
-    Ok(Json(v))
+    .await
 }
 
-async fn get_tv_season(
-    State(state): State<AppState>,
-    Path((id, n)): Path<(i32, i32)>,
-) -> AppResult<Json<serde_json::Value>> {
-    let v = fetch_or_cache_object(&state, "tv_season", format!("{}:{}", id, n), move |http, api_key| {
-        Box::pin(async move { fetch_tv_season(&http, &api_key, id, n).await })
-    })
-    .await?;
-    Ok(Json(v))
-}
-
-async fn get_tv_episode(
-    State(state): State<AppState>,
-    Path((id, s, e)): Path<(i32, i32, i32)>,
-) -> AppResult<Json<serde_json::Value>> {
-    let v = fetch_or_cache_object(
+async fn get_tv_season(State(state): State<AppState>, Path((id, n)): Path<(i32, i32)>) -> AppResult<Response> {
+    let started = Instant::now();
+    fetch_or_cache_object(
         &state,
+        started,
+        "tv_season",
+        format!("{}:{}", id, n),
+        move |http, api_key| Box::pin(async move { fetch_tv_season(&http, &api_key, id, n).await }),
+    )
+    .await
+}
+
+async fn get_tv_episode(State(state): State<AppState>, Path((id, s, e)): Path<(i32, i32, i32)>) -> AppResult<Response> {
+    let started = Instant::now();
+    fetch_or_cache_object(
+        &state,
+        started,
         "tv_episode",
         format!("{}:{}:{}", id, s, e),
         move |http, api_key| Box::pin(async move { fetch_tv_episode(&http, &api_key, id, s, e).await }),
     )
-    .await?;
-    Ok(Json(v))
+    .await
 }
 
-async fn get_person(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Json<serde_json::Value>> {
-    let v = fetch_or_cache_object(&state, "person", id.to_string(), move |http, api_key| {
+async fn get_person(State(state): State<AppState>, Path(id): Path<i32>) -> AppResult<Response> {
+    let started = Instant::now();
+    fetch_or_cache_object(&state, started, "person", id.to_string(), move |http, api_key| {
         Box::pin(async move { fetch_person(&http, &api_key, id).await })
     })
-    .await?;
-    Ok(Json(v))
+    .await
 }
 
 // ─── image proxy ────────────────────────────────────────────────────────────
@@ -276,7 +282,8 @@ async fn get_person(State(state): State<AppState>, Path(id): Path<i32>) -> AppRe
 /// `/api/tmdb/image/*path` — accepts any TMDB image path (e.g.
 /// `original/abc.jpg` or `w500/def.png`); caches once to storage and
 /// redirects subsequent hits to the storage public URL.
-async fn get_image(State(state): State<AppState>, Path(path): Path<String>) -> AppResult<Redirect> {
+async fn get_image(State(state): State<AppState>, Path(path): Path<String>) -> AppResult<Response> {
+    let started = Instant::now();
     // Normalize: caller may pass with or without leading slash; we always
     // store with a leading slash so cache keys are stable.
     let normalized = if path.starts_with('/') {
@@ -295,7 +302,7 @@ async fn get_image(State(state): State<AppState>, Path(path): Path<String>) -> A
             .url_for(&row.storage_key)
             .await
             .map_err(|e| AppError::Internal(e.to_string()))?;
-        return Ok(Redirect::temporary(&url));
+        return Ok(cache_hit_response(&state, "tmdb", started, Redirect::temporary(&url)));
     }
 
     state.rate_limiter.acquire("tmdb").await?;
@@ -355,7 +362,7 @@ async fn get_image(State(state): State<AppState>, Path(path): Path<String>) -> A
         .url_for(&stored.storage_key)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
-    Ok(Redirect::temporary(&url))
+    Ok(Redirect::temporary(&url).into_response())
 }
 
 // keep existing helpers used above

@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Path, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -8,6 +11,7 @@ use tokimo_providers::holiday;
 
 use crate::{
     db::entities::{holiday_years, HolidayYears},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -18,7 +22,8 @@ pub fn routes() -> Router<AppState> {
 async fn get_holidays(
     State(state): State<AppState>,
     Path((country, year)): Path<(String, u16)>,
-) -> AppResult<Json<serde_json::Value>> {
+) -> AppResult<Response> {
+    let started = Instant::now();
     let country_norm = country.to_ascii_uppercase();
     let year_i32 = year as i32;
 
@@ -27,7 +32,7 @@ async fn get_holidays(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "holiday", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("holiday").await?;
@@ -67,5 +72,5 @@ async fn get_holidays(
         })
         .await?;
 
-    Ok(Json(raw_json))
+    Ok(Json(raw_json).into_response())
 }

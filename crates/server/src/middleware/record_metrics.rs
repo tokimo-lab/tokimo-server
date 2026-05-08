@@ -6,7 +6,10 @@ use axum::{
     response::Response,
 };
 
-use crate::{metrics::MetricSample, AppState};
+use crate::{
+    metrics::{MetricSample, MetricsAlreadyRecorded},
+    AppState,
+};
 
 pub async fn record_metrics(State(state): State<AppState>, req: Request, next: Next) -> Response {
     let path = req
@@ -19,22 +22,20 @@ pub async fn record_metrics(State(state): State<AppState>, req: Request, next: N
 
     let response = next.run(req).await;
 
+    if response.extensions().get::<MetricsAlreadyRecorded>().is_some() {
+        return response;
+    }
+
     if let Some(provider) = provider {
         let duration_ms = started_at.elapsed().as_millis().min(u32::MAX as u128) as u32;
         let status = response.status().as_u16();
-        let cache_hit = response
-            .headers()
-            .get("x-cache")
-            .and_then(|value| value.to_str().ok())
-            .map(|value| value.eq_ignore_ascii_case("HIT"))
-            .unwrap_or(false);
 
         state.metrics.record(MetricSample {
             ts_unix: now_unix(),
             provider,
             status,
             duration_ms,
-            cache_hit,
+            cache_hit: false,
         });
     }
 

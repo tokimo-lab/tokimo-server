@@ -1,5 +1,8 @@
+use std::time::Instant;
+
 use axum::{
     extract::{Query, State},
+    response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
@@ -9,6 +12,7 @@ use tokimo_providers::wikipedia;
 
 use crate::{
     db::entities::{wikipedia_summaries, WikipediaSummaries},
+    metrics::cache_hit_response,
     AppError, AppResult, AppState,
 };
 
@@ -22,10 +26,8 @@ pub struct SummaryQuery {
     pub lang: Option<String>,
 }
 
-async fn get_summary(
-    State(state): State<AppState>,
-    Query(q): Query<SummaryQuery>,
-) -> AppResult<Json<serde_json::Value>> {
+async fn get_summary(State(state): State<AppState>, Query(q): Query<SummaryQuery>) -> AppResult<Response> {
+    let started = Instant::now();
     let lang = q.lang.clone().unwrap_or_else(|| "en".to_string());
     let title = q.title.clone();
     let key = wikipedia::cache_key(&lang, &title);
@@ -35,7 +37,7 @@ async fn get_summary(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        return Ok(Json(row.raw_json));
+        return Ok(cache_hit_response(&state, "wikipedia", started, Json(row.raw_json)));
     }
 
     state.rate_limiter.acquire("wikipedia").await?;
@@ -76,5 +78,5 @@ async fn get_summary(
         })
         .await?;
 
-    Ok(Json(raw))
+    Ok(Json(raw).into_response())
 }
