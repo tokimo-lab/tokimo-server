@@ -447,17 +447,32 @@ function ProviderConfigsPage() {
     },
   ];
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const overviewRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const responseModalRef = useRef<HTMLDivElement>(null);
+
   useDocsRegister(
     useMemo(
       () => ({
-        id: "provider-configs",
+        id: "provider-configs-overview",
         sections: [
           { key: "overview" },
           { key: "service-key" },
-          { key: "response-modal" },
           { key: "security" },
         ],
+        fields: [
+          { key: "input-service-key", type: "Bearer · localStorage" },
+          { key: "action-clear-key", type: "button" },
+        ],
+        anchorRef: overviewRef,
+      }),
+      [],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "provider-configs-table",
         fields: [
           { key: "column-provider", type: "string" },
           { key: "column-sample-url", type: "path" },
@@ -465,62 +480,73 @@ function ProviderConfigsPage() {
           { key: "column-auth", type: "required | optional | none" },
           { key: "column-env-vars", type: "string[]" },
           { key: "column-action-send", type: "button" },
-          { key: "input-service-key", type: "Bearer · localStorage" },
-          { key: "action-clear-key", type: "button" },
+        ],
+        anchorRef: tableRef,
+      }),
+      [],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "provider-test-response-modal",
+        sections: [{ key: "overview" }],
+        fields: [
           { key: "response-status", type: "i32 · HTTP code" },
           { key: "response-duration", type: "ms · performance.now()" },
           { key: "response-content-type", type: "string" },
           { key: "response-body", type: "string · auto-pretty" },
         ],
-        anchorRef: containerRef,
+        anchorRef: responseModalRef,
       }),
       [],
     ),
   );
 
   return (
-    <div
-      ref={containerRef}
-      className="mx-auto w-full max-w-7xl flex flex-col gap-4"
-    >
+    <div className="mx-auto w-full max-w-7xl flex flex-col gap-4">
       {contextHolder}
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
-          {t("providers.title")}
-        </h1>
-        <p className="mt-1 text-sm text-fg-muted-light dark:text-fg-muted-dark">
-          {t("providers.description", { count: PROVIDERS.length })}
-        </p>
-      </header>
-      <Alert
-        className="mb-4"
-        type="info"
-        showIcon
-        message={t("providers.readOnlyTitle")}
-        description={t("providers.readOnlyDescription")}
-      />
-      <div className="mb-4 flex w-full gap-2">
-        <Input
-          addonBefore={t("providers.serviceKey.label")}
-          placeholder={t("providers.serviceKey.placeholder")}
-          value={serviceKey}
-          onChange={(e) => setServiceKey(e.target.value)}
-          allowClear
-          className="min-w-0 flex-1"
+      <div ref={overviewRef}>
+        <header className="mb-4">
+          <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
+            {t("providers.title")}
+          </h1>
+          <p className="mt-1 text-sm text-fg-muted-light dark:text-fg-muted-dark">
+            {t("providers.description", { count: PROVIDERS.length })}
+          </p>
+        </header>
+        <Alert
+          className="mb-4"
+          type="info"
+          showIcon
+          message={t("providers.readOnlyTitle")}
+          description={t("providers.readOnlyDescription")}
         />
-        <Button onClick={handleClearKey} disabled={!serviceKey}>
-          {t("providers.serviceKey.clear")}
-        </Button>
+        <div className="mb-4 flex w-full gap-2">
+          <Input
+            addonBefore={t("providers.serviceKey.label")}
+            placeholder={t("providers.serviceKey.placeholder")}
+            value={serviceKey}
+            onChange={(e) => setServiceKey(e.target.value)}
+            allowClear
+            className="min-w-0 flex-1"
+          />
+          <Button onClick={handleClearKey} disabled={!serviceKey}>
+            {t("providers.serviceKey.clear")}
+          </Button>
+        </div>
       </div>
-      <Table
-        dataSource={PROVIDERS}
-        columns={columns}
-        pagination={false}
-        size="small"
-        sticky
-        scroll={{ x: 960, y: "calc(100vh - 320px)" }}
-        className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark"
-      />
+      <div ref={tableRef}>
+        <Table
+          dataSource={PROVIDERS}
+          columns={columns}
+          pagination={false}
+          size="small"
+          sticky
+          scroll={{ x: 960, y: "calc(100vh - 320px)" }}
+          className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark"
+        />
+      </div>
       <Suspense fallback={<Spin />}>
         <ServiceKeyPromptModal
           open={promptOpen}
@@ -534,6 +560,7 @@ function ProviderConfigsPage() {
           loading={loading}
           result={result}
           onClose={handleCloseResponse}
+          anchorRef={responseModalRef}
         />
       </Suspense>
     </div>

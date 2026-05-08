@@ -97,54 +97,90 @@ function ServiceKeysPage() {
     },
   ];
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const overviewRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const createFormRef = useRef<HTMLDivElement>(null);
+  const tokenRevealRef = useRef<HTMLDivElement>(null);
+
   useDocsRegister(
     useMemo(
       () => ({
-        id: "service-keys",
+        id: "service-keys-overview",
         sections: [
           { key: "overview" },
           { key: "lifecycle" },
           { key: "security" },
         ],
+        fields: [{ key: "action-create", type: "button" }],
+        anchorRef: overviewRef,
+      }),
+      [],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "service-keys-table",
         fields: [
           { key: "column-name", type: "string" },
           { key: "column-token-prefix", type: "string" },
           { key: "column-enabled", type: "bool" },
           { key: "column-created", type: "timestamp" },
           { key: "column-action-delete", type: "button · DELETE" },
-          { key: "action-create", type: "button" },
-          { key: "form-name", type: "string · required" },
-          { key: "token-reveal", type: "textarea · one-time" },
         ],
-        anchorRef: containerRef,
+        anchorRef: tableRef,
+      }),
+      [],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "service-key-create-modal",
+        fields: [{ key: "form-name", type: "string · required" }],
+        anchorRef: createFormRef,
+      }),
+      [],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "service-key-token-reveal-modal",
+        sections: [{ key: "warning" }],
+        fields: [{ key: "token-reveal", type: "textarea · one-time" }],
+        anchorRef: tokenRevealRef,
       }),
       [],
     ),
   );
 
   return (
-    <div ref={containerRef} className="mx-auto w-full max-w-7xl">
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
-          {t("nav.serviceKeys")}
-        </h1>
-      </header>
-      <div className="mb-4">
-        <Button type="primary" onClick={() => setModalVisible(true)}>
-          {t("serviceKeys.createBtn")}
-        </Button>
+    <div className="mx-auto w-full max-w-7xl">
+      <div ref={overviewRef}>
+        <header className="mb-4">
+          <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
+            {t("nav.serviceKeys")}
+          </h1>
+        </header>
+        <div className="mb-4">
+          <Button type="primary" onClick={() => setModalVisible(true)}>
+            {t("serviceKeys.createBtn")}
+          </Button>
+        </div>
       </div>
-      <Table
-        dataSource={keys}
-        columns={columns}
-        loading={loading}
-        rowKey="id"
-        size="small"
-        sticky
-        scroll={{ y: "calc(100vh - 260px)" }}
-        className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark"
-      />
+      <div ref={tableRef}>
+        <Table
+          dataSource={keys}
+          columns={columns}
+          loading={loading}
+          rowKey="id"
+          size="small"
+          sticky
+          scroll={{ y: "calc(100vh - 260px)" }}
+          className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark"
+        />
+      </div>
 
       <Modal
         title={t("serviceKeys.modalTitle")}
@@ -156,7 +192,7 @@ function ServiceKeysPage() {
         footer={null}
       >
         {createdToken ? (
-          <div>
+          <div ref={tokenRevealRef}>
             <p>{t("serviceKeys.tokenCreatedHint")}</p>
             <Input.TextArea
               value={createdToken}
@@ -177,25 +213,27 @@ function ServiceKeysPage() {
             </Button>
           </div>
         ) : (
-          <Form form={form} onFinish={handleCreate} layout="vertical">
-            <Form.Item
-              label={t("serviceKeys.nameLabel")}
-              name="name"
-              rules={[{ required: true }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item className="mb-0">
-              <div className="flex items-center gap-2">
-                <Button type="primary" htmlType="submit">
-                  {t("common.create")}
-                </Button>
-                <Button onClick={() => setModalVisible(false)}>
-                  {t("common.cancel")}
-                </Button>
-              </div>
-            </Form.Item>
-          </Form>
+          <div ref={createFormRef}>
+            <Form form={form} onFinish={handleCreate} layout="vertical">
+              <Form.Item
+                label={t("serviceKeys.nameLabel")}
+                name="name"
+                rules={[{ required: true }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item className="mb-0">
+                <div className="flex items-center gap-2">
+                  <Button type="primary" htmlType="submit">
+                    {t("common.create")}
+                  </Button>
+                  <Button onClick={() => setModalVisible(false)}>
+                    {t("common.cancel")}
+                  </Button>
+                </div>
+              </Form.Item>
+            </Form>
+          </div>
         )}
       </Modal>
     </div>

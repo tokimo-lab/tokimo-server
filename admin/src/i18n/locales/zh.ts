@@ -247,18 +247,14 @@ const zh: Resources = {
     entryCount: "{{count}} 条目",
   },
   docs: {
-    dashboard: {
-      title: "运行总览",
+    "dashboard-overview": {
+      title: "Dashboard · 顶栏控件",
       summary:
-        "代理服务的实时仪表盘：在所选时间窗内聚合的请求量、错误率、延迟分位数、状态码分布以及各 Provider 流量。所有数据来自 `/api/admin/dashboard/*` 接口，由后端预聚合，前端不做二次计算。",
+        "页面顶部的时间窗 / 自动刷新 / 立即刷新三件套，统一驱动下面所有图表。",
       sections: {
-        overview: {
-          title: "概览",
-          body: "页面顶部是**全局控件**（时间范围 / 自动刷新 / 手动刷新），下面是 9 张可拖拽重排的图表卡片，最下方是「最近错误」表格。卡片顺序与自动刷新间隔保存在 localStorage（key 为 `tokimo-admin-dashboard-order-v1` / `-refresh-interval-v1`），刷新页面后保留。\n\n**所有图表受顶部时间范围统一控制**——单卡片不提供独立 range，避免互相错位的时间轴。",
-        },
         layout: {
-          title: "卡片布局",
-          body: "9 张卡片在 lg 屏幕（≥1024px）上以 3 列网格展示，**Request Volume** 卡片跨 2 列宽显示。每张卡左上角的拖动手柄（六个点图标）可重排顺序；新顺序立即写入 localStorage。\n\n卡片状态机：**loading**（骨架）→ **error**（带 Retry 按钮）→ **empty**（无数据占位）→ **rendered**。",
+          title: "页面结构",
+          body: "页面分三层：顶部**全局控件**、中间 **9 张可拖拽图表卡片**（lg 屏 3 列网格，Volume 卡跨 2 列）、底部**最近错误表格**。卡片顺序与自动刷新间隔保存在 localStorage（key 为 `tokimo-admin-dashboard-order-v1` / `-refresh-interval-v1`），刷新页面后保留。\n\n**所有图表受顶部时间范围统一控制**——单卡片不提供独立 range，避免互相错位的时间轴。卡片状态机：**loading**（骨架）→ **error**（带 Retry）→ **empty** → **rendered**。",
         },
         refresh: {
           title: "刷新与缓存",
@@ -282,70 +278,139 @@ const zh: Resources = {
           label: "立即刷新（旋转图标按钮）",
           desc: "强制对页面上所有 dashboard query 触发 `refetch()`，无视 `staleTime`。按钮图标在任意 query 处于 fetching 状态时持续旋转。",
         },
-        "card-volume": {
-          label: "Request Volume（请求量）",
+      },
+    },
+    "dashboard-card-volume": {
+      title: "Request Volume",
+      summary: "请求量时间序列折线，区分 calls 与 errors。",
+      fields: {
+        chart: {
+          label: "Request Volume（请求量折线图）",
           desc: "时间序列折线图，X 轴为按 bucket 切片的时间，Y 轴为请求数。区分两条线：**calls**（成功 + 失败合计）与 **errors**。卡片标题处显示**所选时间窗内的总调用数**。\n\n数据源：`GET /api/admin/dashboard/timeseries?range_secs=...&bucket_secs=...`。该卡占据 2 列宽。",
         },
-        "card-cache-ring": {
+      },
+    },
+    "dashboard-card-cache-ring": {
+      title: "Cache Hit Ring",
+      summary: "活动环 + 中央百分比，显示最近 24h 的缓存命中率。",
+      fields: {
+        chart: {
           label: "Cache Hit（缓存命中率环）",
           desc: "活动环 + 中央百分比文字，显示**最近 24 小时**整体缓存命中率（不受顶部 range 影响）。值来自 `dashboard/overview` 的 `cache_hit_ratio_24h` 字段，范围 0..1。\n\n判定为「命中」的依据：响应头含 `x-cache: HIT`，由代理层在写出响应时盖章。",
         },
-        "card-top-providers": {
+      },
+    },
+    "dashboard-card-top-providers": {
+      title: "Top Providers Pie",
+      summary: "按调用次数排名的 Top-10 Provider 占比饼图。",
+      fields: {
+        chart: {
           label: "Top Providers（饼图）",
           desc: "按调用次数排名 Top-N 的 Provider 占比。**N = 10**，超过前 10 的 Provider 合并到「其他」切片中。N 之所以设为 10（不是 5）是为了避免长尾被一锅端到「其他」里看不出分布。\n\n数据源：`dashboard/by-provider`，按时间窗内 `calls` 倒序。",
         },
-        "card-by-provider": {
+      },
+    },
+    "dashboard-card-by-provider": {
+      title: "Provider Calls Column",
+      summary: "横向柱状图，列出所有 Provider 的调用总数。",
+      fields: {
+        chart: {
           label: "Provider Calls（柱图）",
           desc: "横向柱状图，列出所有 Provider 在所选时间窗内的总调用数。卡标题显示 Provider 总数（即柱子条数）。与 Top Providers 饼图共用同一份 `dashboard/by-provider` 数据，但**不做截断**——所有 Provider 都会出现，便于对比尾部流量。",
         },
-        "card-latency": {
+      },
+    },
+    "dashboard-card-latency": {
+      title: "Latency p50 / p95",
+      summary: "延迟分位数双折线，单位 ms。",
+      fields: {
+        chart: {
           label: "Latency p50 / p95（延迟）",
           desc: "两条折线：**p50** = 中位数，**p95** = 95 分位数，单位毫秒。计算口径：每个时间桶内基于该桶所有请求的耗时样本（含成功与失败）做分位数。卡标题显示**最新桶**的 p95 值，副标题显示最新桶 p50。\n\n数据源：与 Volume 共用 `dashboard/timeseries`（响应里同时含 `p50_ms` / `p95_ms`）。",
         },
-        "card-errors-area": {
+      },
+    },
+    "dashboard-card-errors-area": {
+      title: "Errors Trend Area",
+      summary: "面积图：仅 errors 随时间的形态。",
+      fields: {
+        chart: {
           label: "Errors Trend（错误趋势面积图）",
           desc: "面积图，仅显示 `errors`（4xx + 5xx 合计）随时间的变化。与 Volume 折线的 `errors` 序列同源（`dashboard/timeseries.errors`），但单独成图便于在错误激增时一眼看到形态。卡标题显示时间窗内总错误数。",
         },
-        "card-heatmap": {
+      },
+    },
+    "dashboard-card-heatmap": {
+      title: "Provider × Time Heatmap",
+      summary: "二维热力图：Provider 在时间桶上的调用强度。",
+      fields: {
+        chart: {
           label: "Provider × Time（热力图）",
           desc: "二维热力图：Y 轴为 Provider，X 轴为时间桶，格子颜色深浅代表该时间桶该 Provider 的调用次数。用于快速定位「某个 Provider 在某段时间突然爆量」。\n\n数据源：`dashboard/heatmap?range_secs=...&bucket_secs=...`，响应是 `[{ ts, values: [{ provider, calls }] }]` 形态。",
         },
-        "card-status-codes": {
+      },
+    },
+    "dashboard-card-status-codes": {
+      title: "Status Codes",
+      summary: "堆叠柱状图：2xx / 4xx / 5xx 占比。",
+      fields: {
+        chart: {
           label: "Status Codes（状态码堆叠柱）",
           desc: "堆叠柱状图，每个时间桶 3 段：**2xx**（成功，绿）/ **4xx**（客户端错误，黄）/ **5xx**（服务端错误，红）。卡标题显示三段相加的总和。\n\n数据源：`dashboard/status-codes`。注意 502/504 这种 upstream 失败会被代理记成 5xx，与上游本身返回的 5xx 合并。",
         },
-        "card-cache-tables": {
+      },
+    },
+    "dashboard-card-cache-tables": {
+      title: "Cache Tables List",
+      summary: "纯文本列表，按行数倒序列出每张缓存表。",
+      fields: {
+        chart: {
           label: "Cache Tables（缓存表列表）",
           desc: "纯文本列表（不是图表），按行数倒序列出每张缓存表 `cache_<provider>` 及其行数与平均剩余 TTL。点列表项不会跳转——只是状态展示，去缓存检查器页面进行操作。\n\n数据源：`/api/admin/cache/tables`，与「缓存检查器」页顶部下拉同源。",
         },
-        "recent-errors-table": {
+      },
+    },
+    "dashboard-recent-errors-table": {
+      title: "Recent Errors Table",
+      summary: "页面底部表格，列出最近最多 50 条失败请求。",
+      fields: {
+        table: {
           label: "Recent Errors（最近错误表格）",
           desc: "页面底部的表格，列出最近的失败请求。**最多 50 条**（后端硬上限），按发生时间倒序。\n\n列：**Time**（相对时间，如「3 分钟前」）/ **Provider**（哪个 Provider 触发）/ **Status**（HTTP 状态码，如 502）/ **Duration**（耗时毫秒）。\n\n数据源：`dashboard/recent-errors`。错误记录保留时长由后端 metrics rollup 配置决定，超出会被清理。",
         },
       },
     },
-    "provider-configs": {
-      title: "Provider 配置",
-      summary:
-        "本服务接入的所有上游 API Provider 的**只读静态视图**。展示路由前缀、限流、鉴权要求与所需环境变量；底部配合 Service Key 输入框可以即时发起一次真实代理请求来探活。Provider 配置在代码中固化，运行时不可编辑。",
+    "provider-configs-overview": {
+      title: "Provider 配置 · 概览",
+      summary: "页面用途、Service Key 工作流、安全须知。",
       sections: {
         overview: {
           title: "概览",
-          body: "表格内容来自前端常量 `PROVIDERS`（`admin/src/pages/ProviderConfigsPage.tsx`），与后端实际注册路由保持人工同步。每行对应一个上游 Provider 的代理。\n\n**为什么是只读**：鉴权所需的环境变量（如 `TMDB_API_KEY`）在服务进程启动时从 env 读取，admin 不暴露这些值是否已配置——避免泄漏「某 key 是否存在」这种边信道信息。要修改 Provider 行为，请改 `crates/providers/` 与 `.env` 后**重启服务**。",
+          body: "本服务接入的所有上游 API Provider 的**只读静态视图**。表格内容来自前端常量 `PROVIDERS`（`admin/src/pages/ProviderConfigsPage.tsx`），与后端实际注册路由保持人工同步。\n\n**为什么是只读**：鉴权所需的环境变量（如 `TMDB_API_KEY`）在服务进程启动时从 env 读取，admin 不暴露这些值是否已配置——避免泄漏「某 key 是否存在」这种边信道信息。要修改 Provider 行为，请改 `crates/providers/` 与 `.env` 后**重启服务**。",
         },
         "service-key": {
           title: "Service Key 工作流",
           body: "顶部输入框接收一个 Bearer service key（格式 `tks_xxx`）。值会被 base64 编码保存到 `localStorage['tokimo-admin-svc-key']`，**不会**上传服务器。点行内「发送」时：\n\n1. 若 key 为空 → 弹出 `ServiceKeyPromptModal` 让你先填\n2. 浏览器直接 `fetch(sample, { Authorization: 'Bearer ' + key })`\n3. 响应在 `ProviderResponseModal` 中展示，**不经过 admin 后端**\n\n这就是为什么需要 service key：admin 不代为发起请求，避免把 admin session 的权限借给 Provider 调用。",
-        },
-        "response-modal": {
-          title: "响应检查器",
-          body: "「发送」按钮触发的 Modal 显示：**Status**（HTTP 状态码）、**Duration**（前端 `performance.now()` 测的端到端耗时，含网络）、**Content-Type**、**Body**（JSON 会被自动 pretty-print）。「复制响应」按钮把整个 body 写入剪贴板。\n\n失败时（CORS / 网络 / 超时）`status` 显示为 0，error message 单独展示。",
         },
         security: {
           title: "安全须知",
           body: "- Service key 是 base64 编码而非加密，**任何能访问该浏览器 localStorage 的人都能读到**。仅在受信终端使用。\n- 「示例 URL」请求会**真实**打到上游 Provider，会被计入 metrics、消耗你的 API quota、写入 cache。\n- 「清除」按钮只是从 localStorage 删除本地副本，服务器端的 service key 不受影响（要吊销请去「服务密钥」页）。",
         },
       },
+      fields: {
+        "input-service-key": {
+          label: "Service Key 输入框",
+          desc: "接收形如 `tks_xxx.<sig>` 的 Bearer token。值用 base64 编码后存 `localStorage['tokimo-admin-svc-key']`，下次打开本页自动回填。**只用于本页发送测试请求**——admin 自身的鉴权走另一条 cookie/JWT 路径，不读这个值。",
+        },
+        "action-clear-key": {
+          label: "清除按钮",
+          desc: "从 localStorage 删除本地保存的 service key，并清空输入框。**不会**调用后端，**不会**吊销密钥本身。要吊销请去「服务密钥」页对该 key 删除。",
+        },
+      },
+    },
+    "provider-configs-table": {
+      title: "Providers 表格",
+      summary: "上游 Provider 清单：路由前缀、限流、鉴权、env 依赖。",
       fields: {
         "column-provider": {
           label: "Provider",
@@ -371,36 +436,39 @@ const zh: Resources = {
           label: "操作 · 发送",
           desc: "点击发送按钮：用顶部输入框中的 service key（若为空则先弹 prompt）携带 `Authorization: Bearer ...` 直接 `fetch(sample)`。请求**由浏览器发出**，不经 admin 后端转发。\n\n用途：在不动写脚本的前提下快速探活某个 Provider，验证：上游可达 ✅ / service key 有效 ✅ / 鉴权 scope 够用 ✅ / 响应结构符合预期 ✅。响应在 `ProviderResponseModal` 中展示。",
         },
-        "input-service-key": {
-          label: "Service Key 输入框",
-          desc: "接收形如 `tks_xxx.<sig>` 的 Bearer token。值用 base64 编码后存 `localStorage['tokimo-admin-svc-key']`，下次打开本页自动回填。**只用于本页发送测试请求**——admin 自身的鉴权走另一条 cookie/JWT 路径，不读这个值。",
+      },
+    },
+    "provider-test-response-modal": {
+      title: "Provider 响应 Modal",
+      summary: "「发送」按钮触发的响应详情弹窗。",
+      sections: {
+        overview: {
+          title: "概览",
+          body: "Modal 显示 status / duration / content-type / body 四要素；JSON 自动美化；提供「复制响应」。失败时（CORS / 网络 / 超时）`status` 显示为 0，error message 单独展示。",
         },
-        "action-clear-key": {
-          label: "清除按钮",
-          desc: "从 localStorage 删除本地保存的 service key，并清空输入框。**不会**调用后端，**不会**吊销密钥本身。要吊销请去「服务密钥」页对该 key 删除。",
-        },
+      },
+      fields: {
         "response-status": {
-          label: "响应 · Status",
+          label: "Status",
           desc: "Modal 顶部显示的 HTTP 状态码。常见取值：`200` 成功 / `401` service key 无效 / `404` 路径不存在 / `429` 触发限流 / `502` 上游 env 未配置 / `0` fetch 抛错（网络 / CORS / 超时）。",
         },
         "response-duration": {
-          label: "响应 · 耗时",
+          label: "耗时",
           desc: "前端 `performance.now()` 测得的**端到端耗时**（毫秒），从 `fetch()` 发起到完整 body 读完。包含浏览器 → 代理 → 上游 → 代理 → 浏览器全链路。**不等于**上游纯耗时；上游耗时可在 dashboard 延迟图中查看。",
         },
         "response-content-type": {
-          label: "响应 · Content-Type",
+          label: "Content-Type",
           desc: "代理透传的响应头。若为 `application/json` 系列，body 会被自动 pretty-print（缩进 2）；其它类型按原文展示。",
         },
         "response-body": {
-          label: "响应 · Body",
+          label: "Body",
           desc: "响应主体。JSON 会自动美化；非 JSON / parse 失败按原文显示；错误情况下显示 fetch 抛出的 error message。「复制响应」按钮把整个 body 写入剪贴板。",
         },
       },
     },
-    "service-keys": {
-      title: "服务密钥",
-      summary:
-        "签发 / 查看 / 吊销下游服务调用本代理时使用的 Bearer Token。每个密钥有不可变的创建时间和**仅展示一次**的明文 token——丢失后只能重新签发。本页是 admin 唯一能直接产出可用 service key 的入口。",
+    "service-keys-overview": {
+      title: "服务密钥 · 概览",
+      summary: "签发 Bearer Token 给下游服务调用本代理。",
       sections: {
         overview: {
           title: "概览",
@@ -415,6 +483,16 @@ const zh: Resources = {
           body: "- 明文 token 只展示一次；关闭弹窗 = 永久遗失，**没有任何「重新查看」按钮**\n- 后端验签使用恒定时间比较，不会因 sig 不同长度泄漏信息\n- service key 的 scope / TTL **暂未实现**——任何已签发 key 拥有完整 Provider 调用权限，谨慎签发\n- `enabled = false` 等价于软吊销，但目前 admin UI **不展示切换开关**——仅靠删除来吊销",
         },
       },
+      fields: {
+        "action-create": {
+          label: "创建服务密钥按钮",
+          desc: "弹出创建表单。当前**只需填一个 `名称` 字段**——scope / TTL / 备注等高级字段未实现。提交后在同一个 Modal 内显示新签发的明文 token，需要立即复制。",
+        },
+      },
+    },
+    "service-keys-table": {
+      title: "服务密钥表",
+      summary: "已签发密钥列表（仅 prefix，无明文）。",
       fields: {
         "column-name": {
           label: "名称",
@@ -436,24 +514,37 @@ const zh: Resources = {
           label: "操作 · 删除",
           desc: "硬删除该密钥。**立即生效，不可恢复**。点击直接调 `DELETE /api/admin/service-keys/{id}`，没有二次确认弹窗——下游服务会从下一次请求开始收到 401。要重新签发需走「创建」流程拿新 token。",
         },
-        "action-create": {
-          label: "创建服务密钥按钮",
-          desc: "弹出创建表单。当前**只需填一个 `名称` 字段**——scope / TTL / 备注等高级字段未实现。提交后在同一个 Modal 内显示新签发的明文 token，需要立即复制。",
-        },
+      },
+    },
+    "service-key-create-modal": {
+      title: "创建服务密钥 · 表单",
+      summary: "新签发密钥时的填写表单（只 1 个字段）。",
+      fields: {
         "form-name": {
-          label: "表单 · 名称",
+          label: "名称",
           desc: "必填。允许任意 UTF-8 字符串；建议短于 64 字符，否则 prefix 列展示会被截断。提交即落库，无法事后修改（要改名只能删了重签）。",
-        },
-        "token-reveal": {
-          label: "新签发明文 token 展示",
-          desc: "创建成功后弹窗内的只读 textarea，包含 `tks_<id>.<sig>` 完整明文。**仅展示一次**，关闭弹窗后即永久消失——后端从未保存这个 sig 段。点关闭前必须复制走，否则只能重签。",
         },
       },
     },
-    "cache-inspector": {
-      title: "缓存检查器",
-      summary:
-        "查看 PostgreSQL 中各 Provider 缓存表的内容；可以预览原始响应前 200 字符、强制行过期或硬删除单行。每张缓存表 `cache_<provider>` 的 schema 由对应 Sea-ORM entity 决定。",
+    "service-key-token-reveal-modal": {
+      title: "新 Token 一次性展示",
+      summary: "签发成功后只展示一次的明文 token。",
+      sections: {
+        warning: {
+          title: "重要警告",
+          body: "明文 token 只在创建成功后展示这一次。**关闭弹窗后服务端永久无法再次提供**——后端从未保存 sig 段，没有任何「重新查看」按钮。点关闭前必须复制走，否则只能重签。",
+        },
+      },
+      fields: {
+        "token-reveal": {
+          label: "明文 token textarea",
+          desc: "只读 textarea，包含 `tks_<id>.<sig>` 完整明文。手动选中复制即可——浏览器原生选中复制可用。",
+        },
+      },
+    },
+    "cache-inspector-overview": {
+      title: "缓存检查器 · 概览",
+      summary: "选缓存表 / 搜索 / 刷新工具栏；TTL 与操作策略。",
       sections: {
         overview: {
           title: "概览",
@@ -462,10 +553,6 @@ const zh: Resources = {
         ttl: {
           title: "TTL 与过期",
           body: "TTL 由 Provider 在写缓存时显式指定（不在每行单独存配置）；下拉旁的「平均剩余 TTL」是该表所有未过期行的平均值。\n\n**过期行不会自动删除**——查询时若 `now() > fetched_at + ttl` 则视为 stale，下次命中会回源；同时回源失败时仍可作为「软兜底」返回旧数据（具体策略见各 Provider 实现）。\n\n手动「强制过期」会把 `fetched_at` 调到足够古老，保证下一次请求一定回源。",
-        },
-        operations: {
-          title: "可用操作与审计",
-          body: "每行三个操作：\n\n- **查看完整** — 把 `raw_preview`（前 200 字）展示在 Modal 中。**整行 raw 不在表格响应里**，但 Modal 也只展示 200 字——完整 body 需要直连 DB（`SELECT raw FROM cache_<provider> WHERE id=...`）\n- **强制过期** — 调 `POST /api/admin/cache/{table}/{id}/refresh`，把 fetched_at 拨到很久以前\n- **删除** — 调 `DELETE /api/admin/cache/{table}/{id}`，行直接消失（带 Popconfirm 二次确认）\n\n三种操作都会写 admin audit log。**删除不可恢复**。",
         },
         limitations: {
           title: "已知局限",
@@ -489,6 +576,18 @@ const zh: Resources = {
           label: "刷新按钮",
           desc: "重新拉取表列表 + 当前选定表的当前页行。在表数据可能被其他进程改写后用来强制取最新。按钮在加载期间显示 loading。",
         },
+      },
+    },
+    "cache-entries-table": {
+      title: "缓存条目表",
+      summary: "选定缓存表的分页明细，含三个行内操作。",
+      sections: {
+        operations: {
+          title: "可用操作与审计",
+          body: "每行三个操作：\n\n- **查看完整** — 把 `raw_preview`（前 200 字）展示在 Modal 中。**整行 raw 不在表格响应里**，但 Modal 也只展示 200 字——完整 body 需要直连 DB（`SELECT raw FROM cache_<provider> WHERE id=...`）\n- **强制过期** — 调 `POST /api/admin/cache/{table}/{id}/refresh`，把 fetched_at 拨到很久以前\n- **删除** — 调 `DELETE /api/admin/cache/{table}/{id}`，行直接消失（带 Popconfirm 二次确认）\n\n三种操作都会写 admin audit log。**删除不可恢复**。",
+        },
+      },
+      fields: {
         "column-id": {
           label: "ID",
           desc: "缓存行的主键，固定列。通常是 hash（如 SHA256 截断）或 Provider 自定义生成的 stable id。`fixed: left` 让其在水平滚动时不消失。",
@@ -510,17 +609,23 @@ const zh: Resources = {
           desc: "右侧固定列，三个按钮：**查看完整** / **强制过期** / **删除**（带 Popconfirm 二次确认）。详见「可用操作与审计」章节。",
         },
         "action-view-full": {
-          label: "操作 · 查看完整",
+          label: "查看完整",
           desc: "打开 Preview Modal，展示该行 `raw_preview`（前 200 字）。Modal 内有提示：完整 body 需要直接查 DB。**不是真的完整**——名字略带历史感，未来会替换为「预览前 200 字」。",
         },
         "action-expire": {
-          label: "操作 · 强制过期",
+          label: "强制过期",
           desc: "调 `POST /api/admin/cache/{table}/{id}/refresh`，后端把 `fetched_at` 拨到足够古老（如 1970 年）。**不删行**——下一次相同请求 miss 后回源，新值直接覆盖旧行。适合在上游数据有更新但 cache 还没到 TTL 时强刷。",
         },
         "action-delete": {
-          label: "操作 · 删除",
+          label: "删除",
           desc: "硬删除该行。带 Popconfirm 二次确认。**不可恢复**：下次相同请求会冷启动回源（如果上游恰好挂了，软兜底也没东西可兜）。仅在确实需要清理脏数据时使用。",
         },
+      },
+    },
+    "cache-entry-preview-modal": {
+      title: "缓存预览 Modal",
+      summary: "查看单行 `raw_preview` 前 200 字。",
+      fields: {
         "preview-modal": {
           label: "预览 Modal",
           desc: "宽度 720，展示 `raw_preview` 前 200 字。`<pre>` 渲染，保留换行，自动 wrap。最大高度 60vh，超出滚动。无复制按钮——浏览器直接选中复制即可。",

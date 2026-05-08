@@ -226,10 +226,11 @@ function EmptyChart() {
 
 type SortableProps = {
   id: ChartId;
+  anchorRef?: React.RefObject<HTMLDivElement | null>;
   children: (handleProps: Record<string, unknown>) => React.ReactNode;
 };
 
-function SortableSlot({ id, children }: SortableProps) {
+function SortableSlot({ id, anchorRef, children }: SortableProps) {
   const {
     attributes,
     listeners,
@@ -249,8 +250,13 @@ function SortableSlot({ id, children }: SortableProps) {
   const wide = WIDE_CHARTS.has(id);
   const className = wide ? "lg:col-span-2" : "lg:col-span-1";
 
+  const setRef = (el: HTMLDivElement | null) => {
+    setNodeRef(el);
+    if (anchorRef) anchorRef.current = el;
+  };
+
   return (
-    <div ref={setNodeRef} style={style} className={`col-span-1 ${className}`}>
+    <div ref={setRef} style={style} className={`col-span-1 ${className}`}>
       {children({ ...attributes, ...listeners })}
     </div>
   );
@@ -860,47 +866,144 @@ function DashboardPage() {
     },
   ];
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const overviewRef = useRef<HTMLDivElement>(null);
+  const recentErrorsRef = useRef<HTMLDivElement>(null);
+  const chartRefs = useMemo<
+    Record<ChartId, React.RefObject<HTMLDivElement | null>>
+  >(
+    () => ({
+      "chart-timeseries": { current: null },
+      "chart-cache-ring": { current: null },
+      "chart-top-providers": { current: null },
+      "chart-by-provider": { current: null },
+      "chart-latency": { current: null },
+      "chart-errors-area": { current: null },
+      "chart-heatmap": { current: null },
+      "chart-status-codes": { current: null },
+      "chart-cache-tables": { current: null },
+    }),
+    [],
+  );
+
   useDocsRegister(
     useMemo(
       () => ({
-        id: "dashboard",
-        sections: [
-          { key: "overview" },
-          { key: "layout" },
-          { key: "refresh" },
-          { key: "backdoor" },
-        ],
+        id: "dashboard-overview",
+        sections: [{ key: "layout" }, { key: "refresh" }, { key: "backdoor" }],
         fields: [
           { key: "control-range", type: "1h | 24h | 7d" },
           { key: "control-refresh-interval", type: "0 | 10 | 30 | 60 (s)" },
           { key: "control-refresh-now", type: "button" },
-          { key: "card-volume", type: "line · time-series" },
-          { key: "card-cache-ring", type: "ring · 24h ratio" },
-          { key: "card-top-providers", type: "pie · top-10" },
-          { key: "card-by-provider", type: "column · all providers" },
-          { key: "card-latency", type: "line · p50 / p95" },
-          { key: "card-errors-area", type: "area · errors only" },
-          { key: "card-heatmap", type: "heatmap · provider × time" },
-          {
-            key: "card-status-codes",
-            type: "stacked column · 2xx / 4xx / 5xx",
-          },
-          { key: "card-cache-tables", type: "list · cache_<provider>" },
-          { key: "recent-errors-table", type: "table · ≤ 50 rows" },
         ],
-        anchorRef: containerRef,
+        anchorRef: overviewRef,
+      }),
+      [],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard-card-volume",
+        fields: [{ key: "chart", type: "line · time-series" }],
+        anchorRef: chartRefs["chart-timeseries"],
+      }),
+      [chartRefs],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard-card-cache-ring",
+        fields: [{ key: "chart", type: "ring · 24h ratio" }],
+        anchorRef: chartRefs["chart-cache-ring"],
+      }),
+      [chartRefs],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard-card-top-providers",
+        fields: [{ key: "chart", type: "pie · top-10" }],
+        anchorRef: chartRefs["chart-top-providers"],
+      }),
+      [chartRefs],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard-card-by-provider",
+        fields: [{ key: "chart", type: "column · all providers" }],
+        anchorRef: chartRefs["chart-by-provider"],
+      }),
+      [chartRefs],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard-card-latency",
+        fields: [{ key: "chart", type: "line · p50 / p95" }],
+        anchorRef: chartRefs["chart-latency"],
+      }),
+      [chartRefs],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard-card-errors-area",
+        fields: [{ key: "chart", type: "area · errors only" }],
+        anchorRef: chartRefs["chart-errors-area"],
+      }),
+      [chartRefs],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard-card-heatmap",
+        fields: [{ key: "chart", type: "heatmap · provider × time" }],
+        anchorRef: chartRefs["chart-heatmap"],
+      }),
+      [chartRefs],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard-card-status-codes",
+        fields: [{ key: "chart", type: "stacked column · 2xx / 4xx / 5xx" }],
+        anchorRef: chartRefs["chart-status-codes"],
+      }),
+      [chartRefs],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard-card-cache-tables",
+        fields: [{ key: "chart", type: "list · cache_<provider>" }],
+        anchorRef: chartRefs["chart-cache-tables"],
+      }),
+      [chartRefs],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "dashboard-recent-errors-table",
+        fields: [{ key: "table", type: "table · ≤ 50 rows" }],
+        anchorRef: recentErrorsRef,
       }),
       [],
     ),
   );
 
   return (
-    <div
-      ref={containerRef}
-      className="mx-auto flex w-full max-w-[1280px] flex-col gap-6"
-    >
-      <div className="flex items-end justify-between gap-4">
+    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6">
+      <div ref={overviewRef} className="flex items-end justify-between gap-4">
         <Typography.Title
           level={2}
           className="m-0 text-2xl font-semibold tracking-[-0.03em] text-fg-light dark:text-fg-dark"
@@ -956,7 +1059,7 @@ function DashboardPage() {
         <SortableContext items={order} strategy={rectSortingStrategy}>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {order.map((id) => (
-              <SortableSlot key={id} id={id}>
+              <SortableSlot key={id} id={id} anchorRef={chartRefs[id]}>
                 {(handle) => renderChart(id, handle)}
               </SortableSlot>
             ))}
@@ -964,7 +1067,10 @@ function DashboardPage() {
         </SortableContext>
       </DndContext>
 
-      <div className="rounded-2xl border border-border-light bg-panel-light p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.04),0_1px_3px_0_rgba(0,0,0,0.06)] dark:border-border-dark dark:bg-panel-dark">
+      <div
+        ref={recentErrorsRef}
+        className="rounded-2xl border border-border-light bg-panel-light p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.04),0_1px_3px_0_rgba(0,0,0,0.06)] dark:border-border-dark dark:bg-panel-dark"
+      >
         <div className="mb-3 text-[11px] font-semibold tracking-[0.08em] text-fg-muted-light uppercase dark:text-fg-muted-dark">
           {t("dashboard.charts.recentErrors")}
         </div>

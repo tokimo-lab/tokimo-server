@@ -1,4 +1,5 @@
 import { Button, Modal, Tag, message } from "antd";
+import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 export interface FetchResult {
@@ -16,6 +17,7 @@ interface Props {
   loading: boolean;
   result: FetchResult | null;
   onClose: () => void;
+  anchorRef?: RefObject<HTMLDivElement | null>;
 }
 
 function ProviderResponseModal({
@@ -25,6 +27,7 @@ function ProviderResponseModal({
   loading,
   result,
   onClose,
+  anchorRef,
 }: Props) {
   const { t } = useTranslation();
   const [messageApi, contextHolder] = message.useMessage();
@@ -56,7 +59,7 @@ function ProviderResponseModal({
       ]}
     >
       {contextHolder}
-      <div className="min-w-0">
+      <div ref={anchorRef} className="min-w-0">
         {sample && (
           <div>
             <code className="break-all text-xs text-fg-muted-light dark:text-fg-muted-dark">

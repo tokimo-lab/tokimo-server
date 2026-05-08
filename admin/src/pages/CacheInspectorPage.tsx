@@ -241,22 +241,32 @@ function CacheInspectorPage() {
 
   const preview = previewRow?.raw_preview ?? "";
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const overviewRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const previewModalRef = useRef<HTMLDivElement>(null);
+
   useDocsRegister(
     useMemo(
       () => ({
-        id: "cache-inspector",
-        sections: [
-          { key: "overview" },
-          { key: "ttl" },
-          { key: "operations" },
-          { key: "limitations" },
-        ],
+        id: "cache-inspector-overview",
+        sections: [{ key: "overview" }, { key: "ttl" }, { key: "limitations" }],
         fields: [
           { key: "selector-table", type: "select" },
           { key: "avg-ttl-display", type: "computed · seconds" },
           { key: "input-search", type: "client-side filter" },
           { key: "action-refresh-list", type: "button" },
+        ],
+        anchorRef: overviewRef,
+      }),
+      [],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "cache-entries-table",
+        sections: [{ key: "operations" }],
+        fields: [
           { key: "column-id", type: "string · pk" },
           { key: "column-key", type: "string · canonical" },
           { key: "column-fetched-at", type: "timestamp" },
@@ -265,82 +275,95 @@ function CacheInspectorPage() {
           { key: "action-view-full", type: "button" },
           { key: "action-expire", type: "button · POST /refresh" },
           { key: "action-delete", type: "button · DELETE" },
-          { key: "preview-modal", type: "modal · 720px" },
         ],
-        anchorRef: containerRef,
+        anchorRef: tableRef,
+      }),
+      [],
+    ),
+  );
+  useDocsRegister(
+    useMemo(
+      () => ({
+        id: "cache-entry-preview-modal",
+        fields: [{ key: "preview-modal", type: "modal · 720px" }],
+        anchorRef: previewModalRef,
       }),
       [],
     ),
   );
 
   return (
-    <div ref={containerRef} className="mx-auto w-full max-w-7xl px-8 py-8">
-      <header className="mb-4">
-        <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
-          {t("cache.title")}
-        </h1>
-        <p className="mt-1 text-sm text-fg-muted-light dark:text-fg-muted-dark">
-          {t("cache.description")}
-        </p>
-      </header>
+    <div className="mx-auto w-full max-w-7xl px-8 py-8">
+      <div ref={overviewRef}>
+        <header className="mb-4">
+          <h1 className="text-2xl font-semibold text-fg-light dark:text-fg-dark">
+            {t("cache.title")}
+          </h1>
+          <p className="mt-1 text-sm text-fg-muted-light dark:text-fg-muted-dark">
+            {t("cache.description")}
+          </p>
+        </header>
 
-      <section className="mb-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <Select
-            className="min-w-72"
-            loading={tablesLoading}
-            options={tables.map((table) => ({
-              label: `${table.name} (${table.row_count})`,
-              value: table.name,
-            }))}
-            value={selectedTableName}
-            onChange={(value) => {
-              setSelectedTableName(value);
-              setPage(1);
-            }}
-            placeholder={t("cache.tablePlaceholder")}
-          />
-          <div className="text-sm text-fg-muted-light dark:text-fg-muted-dark">
-            {formatTtl(selectedTable?.avg_ttl_remaining_seconds ?? null, t)}
+        <section className="mb-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Select
+              className="min-w-72"
+              loading={tablesLoading}
+              options={tables.map((table) => ({
+                label: `${table.name} (${table.row_count})`,
+                value: table.name,
+              }))}
+              value={selectedTableName}
+              onChange={(value) => {
+                setSelectedTableName(value);
+                setPage(1);
+              }}
+              placeholder={t("cache.tablePlaceholder")}
+            />
+            <div className="text-sm text-fg-muted-light dark:text-fg-muted-dark">
+              {formatTtl(selectedTable?.avg_ttl_remaining_seconds ?? null, t)}
+            </div>
+            <Input.Search
+              className="min-w-72 max-w-md"
+              allowClear
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
+              placeholder={t("cache.searchPlaceholder")}
+            />
+            <Button
+              loading={tablesLoading || rowsLoading}
+              onClick={() => void handleRefresh()}
+            >
+              {t("common.refresh")}
+            </Button>
           </div>
-          <Input.Search
-            className="min-w-72 max-w-md"
-            allowClear
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              setPage(1);
-            }}
-            placeholder={t("cache.searchPlaceholder")}
-          />
-          <Button
-            loading={tablesLoading || rowsLoading}
-            onClick={() => void handleRefresh()}
-          >
-            {t("common.refresh")}
-          </Button>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      <section className="mb-4">
-        <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={filteredRows}
-          loading={rowsLoading}
-          size="small"
-          sticky
-          scroll={{ x: 1180, y: "calc(100vh - 360px)" }}
-          pagination={{
-            current: page,
-            pageSize: PAGE_SIZE,
-            showSizeChanger: false,
-            total: selectedTable?.row_count ?? 0,
-            onChange: (nextPage) => setPage(nextPage),
-          }}
-          className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark"
-        />
-      </section>
+      <div ref={tableRef}>
+        <section className="mb-4">
+          <Table
+            rowKey="id"
+            columns={columns}
+            dataSource={filteredRows}
+            loading={rowsLoading}
+            size="small"
+            sticky
+            scroll={{ x: 1180, y: "calc(100vh - 360px)" }}
+            pagination={{
+              current: page,
+              pageSize: PAGE_SIZE,
+              showSizeChanger: false,
+              total: selectedTable?.row_count ?? 0,
+              onChange: (nextPage) => setPage(nextPage),
+            }}
+            className="[&_.ant-table-tbody>tr]:transition-colors [&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-light dark:[&_.ant-table-tbody>tr:hover>td]:bg-fill-tertiary-dark"
+          />
+        </section>
+      </div>
 
       <Modal
         title={t("cache.previewModalTitle")}
@@ -349,12 +372,14 @@ function CacheInspectorPage() {
         footer={null}
         onCancel={() => setPreviewRow(null)}
       >
-        <p className="mb-3 text-sm text-fg-muted-light dark:text-fg-muted-dark">
-          {t("cache.previewHint")}
-        </p>
-        <pre className="overflow-x-auto whitespace-pre-wrap break-all bg-fill-tertiary-light dark:bg-fill-tertiary-dark p-3 rounded-md text-xs max-h-[60vh] overflow-y-auto">
-          {preview}
-        </pre>
+        <div ref={previewModalRef}>
+          <p className="mb-3 text-sm text-fg-muted-light dark:text-fg-muted-dark">
+            {t("cache.previewHint")}
+          </p>
+          <pre className="overflow-x-auto whitespace-pre-wrap break-all bg-fill-tertiary-light dark:bg-fill-tertiary-dark p-3 rounded-md text-xs max-h-[60vh] overflow-y-auto">
+            {preview}
+          </pre>
+        </div>
       </Modal>
     </div>
   );
