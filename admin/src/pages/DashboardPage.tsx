@@ -1,167 +1,237 @@
 import {
-  ApiOutlined,
-  ArrowUpOutlined,
-  DatabaseOutlined,
-  KeyOutlined,
-  ThunderboltOutlined,
-} from "@ant-design/icons";
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Button,
-  Card,
-  Col,
-  Row,
   Segmented,
   Skeleton,
-  Statistic,
   Table,
   type TableProps,
   Typography,
 } from "antd";
-import { Suspense, lazy, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   type DashboardRecentError,
   getDashboardByProvider,
+  getDashboardHeatmap,
   getDashboardOverview,
   getDashboardRecentErrors,
+  getDashboardStatusCodes,
   getDashboardTimeseries,
 } from "../api/client";
 import { useAdminTheme } from "../theme";
+import { ActivityRing } from "./dashboard/ActivityRing";
+import { ChartCard } from "./dashboard/ChartCard";
+import {
+  Area,
+  Column,
+  Heatmap,
+  Line,
+  Pie,
+  errorsAreaConfig,
+  heatmapConfig,
+  latencyLineConfig,
+  pieConfig,
+  providerColumnConfig,
+  statusCodesConfig,
+  timeseriesLineConfig,
+} from "./dashboard/charts";
 
-const Line = lazy(() =>
-  import("@ant-design/plots").then((module) => ({ default: module.Line })),
-);
-const Pie = lazy(() =>
-  import("@ant-design/plots").then((module) => ({ default: module.Pie })),
-);
-const Column = lazy(() =>
-  import("@ant-design/plots").then((module) => ({ default: module.Column })),
-);
-
-const RANGE_BUCKET: Record<string, string> = {
-  "1h": "5m",
-  "24h": "1h",
-  "7d": "1d",
+type RangeKey = "1h" | "24h" | "7d";
+const RANGE_SECS: Record<RangeKey, { range: number; bucket: number }> = {
+  "1h": { range: 3600, bucket: 300 },
+  "24h": { range: 86400, bucket: 3600 },
+  "7d": { range: 604800, bucket: 86400 },
 };
-const LINE_GRADIENT = "l(0) 0:#3b82f6 0.5:#8b5cf6 1:#ec4899";
-const PIE_COLORS = [
-  "#8b5cf6",
-  "#3b82f6",
-  "#ec4899",
-  "#06b6d4",
-  "#10b981",
-  "#f59e0b",
-];
-const RANGE_OPTIONS = [
-  { labelKey: "dashboard.range.1h", value: "1h" },
-  { labelKey: "dashboard.range.24h", value: "24h" },
-  { labelKey: "dashboard.range.7d", value: "7d" },
+
+const ORDER_STORAGE_KEY = "tokimo-admin-dashboard-order-v1";
+
+const CHART_IDS = [
+  "chart-timeseries",
+  "chart-cache-ring",
+  "chart-top-providers",
+  "chart-by-provider",
+  "chart-latency",
+  "chart-errors-area",
+  "chart-heatmap",
+  "chart-status-codes",
+  "chart-cache-tables",
 ] as const;
+type ChartId = (typeof CHART_IDS)[number];
 
-const tableWrapperClass =
-  "overflow-hidden rounded-lg border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark [&_.ant-table]:!bg-transparent [&_.ant-table-cell]:!border-border-light dark:[&_.ant-table-cell]:!border-border-dark [&_.ant-table-thead>tr>th]:!bg-panel-light dark:[&_.ant-table-thead>tr>th]:!bg-panel-dark [&_.ant-table-thead>tr>th]:!text-fg-muted-light dark:[&_.ant-table-thead>tr>th]:!text-fg-muted-dark [&_.ant-table-tbody>tr:hover>td]:!bg-zinc-100 dark:[&_.ant-table-tbody>tr:hover>td]:!bg-[#18181c]";
-const cardClass =
-  "rounded-lg border border-border-light bg-panel-light shadow-none transition-shadow hover:shadow-sm dark:border-border-dark dark:bg-panel-dark";
-const chartBodyClass = "min-h-[320px]";
-const shortChartClass = "min-h-[260px]";
+const DEFAULT_ORDER: ChartId[] = [
+  "chart-timeseries",
+  "chart-cache-ring",
+  "chart-top-providers",
+  "chart-by-provider",
+  "chart-latency",
+  "chart-errors-area",
+  "chart-heatmap",
+  "chart-status-codes",
+  "chart-cache-tables",
+];
 
-type ChartPalette = {
-  axis: string;
-  border: string;
-  text: string;
-  muted: string;
-};
+/** charts that should span 2 columns on lg+ screens */
+const WIDE_CHARTS: ReadonlySet<ChartId> = new Set(["chart-timeseries"]);
 
-type PieDatum = {
-  provider: string;
-  calls: number;
-  percent?: number;
-};
-
-function getChartPalette(resolvedMode: "light" | "dark"): ChartPalette {
-  return resolvedMode === "dark"
-    ? {
-        axis: "#9a9aa3",
-        border: "#1f1f23",
-        muted: "#9a9aa3",
-        text: "#ededed",
-      }
-    : {
-        axis: "#5e5e66",
-        border: "#e5e5e7",
-        muted: "#5e5e66",
-        text: "#1a1a1a",
-      };
+function loadOrder(): ChartId[] {
+  try {
+    const raw = localStorage.getItem(ORDER_STORAGE_KEY);
+    if (!raw) return DEFAULT_ORDER;
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return DEFAULT_ORDER;
+    const valid = parsed.every(
+      (id): id is ChartId =>
+        typeof id === "string" && (CHART_IDS as readonly string[]).includes(id),
+    );
+    if (!valid || parsed.length !== CHART_IDS.length) return DEFAULT_ORDER;
+    const set = new Set(parsed as ChartId[]);
+    if (set.size !== CHART_IDS.length) return DEFAULT_ORDER;
+    return parsed as ChartId[];
+  } catch {
+    return DEFAULT_ORDER;
+  }
 }
 
-function toDate(ts: number) {
-  return new Date(ts < 1_000_000_000_000 ? ts * 1000 : ts);
+function toMs(ts: number): number {
+  return ts < 1_000_000_000_000 ? ts * 1000 : ts;
 }
 
-function formatTime(ts: number) {
-  return toDate(ts).toLocaleString(undefined, {
-    day: "2-digit",
+function formatTime(ts: number, range: RangeKey): string {
+  const date = new Date(toMs(ts));
+  if (range === "7d") {
+    return date.toLocaleDateString(undefined, {
+      day: "2-digit",
+      month: "2-digit",
+    });
+  }
+  if (range === "24h") {
+    return date.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  return date.toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
-    month: "2-digit",
   });
-}
-
-function formatRelativeTime(
-  ts: number,
-  t: ReturnType<typeof useTranslation>["t"],
-) {
-  const diffMs = Math.max(Date.now() - toDate(ts).getTime(), 0);
-  const minute = 60_000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (diffMs < minute) return t("dashboard.relative.justNow");
-  if (diffMs < hour) {
-    return t("dashboard.relative.minutesAgo", {
-      count: Math.floor(diffMs / minute),
-    });
-  }
-  if (diffMs < day) {
-    return t("dashboard.relative.hoursAgo", {
-      count: Math.floor(diffMs / hour),
-    });
-  }
-  return t("dashboard.relative.daysAgo", { count: Math.floor(diffMs / day) });
 }
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat().format(value);
 }
 
-function ErrorState({
+function formatTtlShort(seconds: number | null | undefined): string {
+  if (seconds === null || seconds === undefined) return "—";
+  if (seconds <= 0) return "0";
+  const d = Math.floor(seconds / 86400);
+  if (d > 0) return `${d}d`;
+  const h = Math.floor(seconds / 3600);
+  if (h > 0) return `${h}h`;
+  const m = Math.floor(seconds / 60);
+  if (m > 0) return `${m}m`;
+  return `${seconds}s`;
+}
+
+function formatRelative(
+  ts: number,
+  t: ReturnType<typeof useTranslation>["t"],
+): string {
+  const diff = Math.max(Date.now() - toMs(ts), 0);
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diff < minute) return t("dashboard.relative.justNow");
+  if (diff < hour)
+    return t("dashboard.relative.minutesAgo", {
+      count: Math.floor(diff / minute),
+    });
+  if (diff < day)
+    return t("dashboard.relative.hoursAgo", {
+      count: Math.floor(diff / hour),
+    });
+  return t("dashboard.relative.daysAgo", { count: Math.floor(diff / day) });
+}
+
+function ChartFallback() {
+  return <Skeleton active paragraph={{ rows: 4 }} />;
+}
+
+function ChartError({
   error,
   onRetry,
-}: { error: unknown; onRetry: () => void }) {
+}: {
+  error: unknown;
+  onRetry: () => void;
+}) {
   const { t } = useTranslation();
-
   return (
     <Alert
       type="error"
       showIcon
       message={t("common.error")}
       description={error instanceof Error ? error.message : String(error)}
-      action={<Button onClick={onRetry}>{t("dashboard.retry")}</Button>}
+      action={
+        <Button size="small" onClick={onRetry}>
+          {t("dashboard.retry")}
+        </Button>
+      }
     />
   );
 }
 
-function EmptyDashboard() {
+function EmptyChart() {
   const { t } = useTranslation();
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center text-xs text-fg-muted-light dark:text-fg-muted-dark">
+      {t("dashboard.empty")}
+    </div>
+  );
+}
+
+type SortableProps = {
+  id: ChartId;
+  children: (handleProps: Record<string, unknown>) => React.ReactNode;
+};
+
+function SortableSlot({ id, children }: SortableProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : "auto",
+    opacity: isDragging ? 0.85 : 1,
+  };
+
+  const wide = WIDE_CHARTS.has(id);
+  const className = wide ? "lg:col-span-2" : "lg:col-span-1";
 
   return (
-    <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 text-center">
-      <div className="gradient-bg h-12 w-[72px] rounded-lg opacity-20" />
-      <Typography.Text className="text-xs text-fg-muted-light dark:text-fg-muted-dark">
-        {t("dashboard.empty")}
-      </Typography.Text>
+    <div ref={setNodeRef} style={style} className={`col-span-1 ${className}`}>
+      {children({ ...attributes, ...listeners })}
     </div>
   );
 }
@@ -169,70 +239,107 @@ function EmptyDashboard() {
 function DashboardPage() {
   const { t } = useTranslation();
   const { resolvedMode } = useAdminTheme();
-  const [range, setRange] = useState("24h");
-  const chartPalette = getChartPalette(resolvedMode);
-  const chartKey = `${resolvedMode}-${chartPalette.axis}-${chartPalette.border}`;
-  const bucket = RANGE_BUCKET[range];
+  const [range, setRange] = useState<RangeKey>("24h");
+  const { range: rangeSecs, bucket: bucketSecs } = RANGE_SECS[range];
+  const themeKey = resolvedMode;
+
+  const [order, setOrder] = useState<ChartId[]>(() => loadOrder());
+  useEffect(() => {
+    try {
+      localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(order));
+    } catch {
+      // ignore storage errors (private mode etc.)
+    }
+  }, [order]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+  );
 
   const overviewQuery = useQuery({
     queryKey: ["dashboard", "overview"],
     queryFn: getDashboardOverview,
   });
   const timeseriesQuery = useQuery({
-    queryKey: ["dashboard", "timeseries", range, bucket],
-    queryFn: () => getDashboardTimeseries(range, bucket),
+    queryKey: ["dashboard", "timeseries", rangeSecs, bucketSecs],
+    queryFn: () => getDashboardTimeseries(rangeSecs, bucketSecs),
   });
   const providersQuery = useQuery({
-    queryKey: ["dashboard", "providers", "24h"],
-    queryFn: () => getDashboardByProvider("24h"),
+    queryKey: ["dashboard", "providers", rangeSecs],
+    queryFn: () => getDashboardByProvider(rangeSecs),
+  });
+  const heatmapQuery = useQuery({
+    queryKey: ["dashboard", "heatmap", rangeSecs, bucketSecs],
+    queryFn: () => getDashboardHeatmap(rangeSecs, bucketSecs),
+    retry: false,
+  });
+  const statusQuery = useQuery({
+    queryKey: ["dashboard", "status", rangeSecs, bucketSecs],
+    queryFn: () => getDashboardStatusCodes(rangeSecs, bucketSecs),
+    retry: false,
   });
   const recentErrorsQuery = useQuery({
     queryKey: ["dashboard", "recent-errors", 10],
     queryFn: () => getDashboardRecentErrors(10),
   });
+  const cacheTablesQuery = useQuery({
+    queryKey: ["dashboard", "cache-tables"],
+    queryFn: async () => {
+      const { listCacheTables } = await import("../api/cache");
+      return listCacheTables();
+    },
+  });
 
   const overview = overviewQuery.data;
-  const errorRate = overview?.calls_24h
-    ? overview.errors_24h / overview.calls_24h
-    : 0;
+  const timeseries = timeseriesQuery.data ?? [];
 
-  const lineMetricLabels = useMemo(
-    () => ({
-      calls: t("dashboard.charts.calls"),
-      errors: t("dashboard.charts.errors"),
-      hits: t("dashboard.charts.cacheHits"),
-      misses: t("dashboard.charts.cacheMisses", {
-        defaultValue: "Cache misses",
-      }),
-    }),
-    [t],
+  const totalCallsInRange = useMemo(
+    () => timeseries.reduce((sum, p) => sum + p.calls, 0),
+    [timeseries],
+  );
+  const totalErrorsInRange = useMemo(
+    () => timeseries.reduce((sum, p) => sum + p.errors, 0),
+    [timeseries],
   );
 
+  const lineLabels = {
+    calls: t("dashboard.charts.calls"),
+    errors: t("dashboard.charts.errors"),
+    hits: t("dashboard.charts.cacheHits"),
+    misses: t("dashboard.charts.cacheMisses"),
+  };
   const lineData = useMemo(
     () =>
-      (timeseriesQuery.data ?? []).flatMap((point) => [
+      timeseries.flatMap((p) => [
         {
-          metric: lineMetricLabels.calls,
-          time: formatTime(point.ts),
-          value: point.calls,
+          metric: lineLabels.calls,
+          time: formatTime(p.ts, range),
+          value: p.calls,
         },
         {
-          metric: lineMetricLabels.errors,
-          time: formatTime(point.ts),
-          value: point.errors,
+          metric: lineLabels.hits,
+          time: formatTime(p.ts, range),
+          value: p.hits,
         },
         {
-          metric: lineMetricLabels.hits,
-          time: formatTime(point.ts),
-          value: point.hits,
+          metric: lineLabels.misses,
+          time: formatTime(p.ts, range),
+          value: p.misses,
         },
         {
-          metric: lineMetricLabels.misses,
-          time: formatTime(point.ts),
-          value: point.misses,
+          metric: lineLabels.errors,
+          time: formatTime(p.ts, range),
+          value: p.errors,
         },
       ]),
-    [lineMetricLabels, timeseriesQuery.data],
+    [
+      timeseries,
+      range,
+      lineLabels.calls,
+      lineLabels.hits,
+      lineLabels.misses,
+      lineLabels.errors,
+    ],
   );
 
   const sortedProviders = useMemo(
@@ -241,355 +348,526 @@ function DashboardPage() {
   );
 
   const pieData = useMemo(() => {
-    const top = sortedProviders.slice(0, 8);
+    const top = sortedProviders.slice(0, 5);
     const otherCalls = sortedProviders
-      .slice(8)
-      .reduce((total, item) => total + item.calls, 0);
+      .slice(5)
+      .reduce((sum, p) => sum + p.calls, 0);
     return otherCalls > 0
       ? [...top, { provider: t("dashboard.charts.other"), calls: otherCalls }]
       : top;
   }, [sortedProviders, t]);
 
-  const columnData = useMemo(
-    () => sortedProviders.slice(0, 10),
-    [sortedProviders],
+  const pieTotal = useMemo(
+    () => pieData.reduce((sum, d) => sum + d.calls, 0),
+    [pieData],
   );
 
-  const lineConfig = {
-    axis: {
-      x: { labelFill: chartPalette.axis, lineStroke: chartPalette.border },
-      y: { gridStroke: chartPalette.border, labelFill: chartPalette.axis },
-    },
-    background: "transparent",
-    colorField: "metric",
-    data: lineData,
-    height: 300,
-    legend: { color: { itemLabelFill: chartPalette.text } },
-    point: { size: 0 },
-    scale: {
-      color: {
-        domain: [
-          lineMetricLabels.calls,
-          lineMetricLabels.errors,
-          lineMetricLabels.hits,
-          lineMetricLabels.misses,
-        ],
-        range: [LINE_GRADIENT, "#f43f5e", "#10b981", "#9a9aa3"],
-      },
-    },
-    seriesField: "metric",
-    style: { lineWidth: 2 },
-    theme: { colors: ["#8b5cf6", "#f43f5e", "#10b981", "#9a9aa3"] },
-    xField: "time",
-    yField: "value",
+  const columnLabels = {
+    calls: t("dashboard.charts.calls"),
+    errors: t("dashboard.charts.errors"),
+  };
+  const columnData = useMemo(
+    () =>
+      sortedProviders.slice(0, 8).flatMap((p) => [
+        { provider: p.provider, metric: columnLabels.calls, value: p.calls },
+        { provider: p.provider, metric: columnLabels.errors, value: p.errors },
+      ]),
+    [sortedProviders, columnLabels.calls, columnLabels.errors],
+  );
+
+  const latencyLabels = {
+    p50: t("dashboard.charts.p50"),
+    p95: t("dashboard.charts.p95"),
+  };
+  const latencyData = useMemo(
+    () =>
+      timeseries.flatMap((p) => [
+        {
+          metric: latencyLabels.p50,
+          time: formatTime(p.ts, range),
+          value: p.p50_ms ?? 0,
+        },
+        {
+          metric: latencyLabels.p95,
+          time: formatTime(p.ts, range),
+          value: p.p95_ms ?? 0,
+        },
+      ]),
+    [timeseries, range, latencyLabels.p50, latencyLabels.p95],
+  );
+  const lastPoint =
+    timeseries.length > 0 ? timeseries[timeseries.length - 1] : undefined;
+  const latestP95 = lastPoint?.p95_ms ?? 0;
+  const latestP50 = lastPoint?.p50_ms ?? 0;
+
+  const errorsAreaData = useMemo(
+    () =>
+      timeseries.map((p) => ({
+        time: formatTime(p.ts, range),
+        errors: p.errors,
+      })),
+    [timeseries, range],
+  );
+
+  const heatmapData = useMemo(() => {
+    const buckets = heatmapQuery.data?.buckets ?? [];
+    return buckets.flatMap((b) =>
+      b.values.map((v) => ({
+        time: formatTime(b.ts, range),
+        provider: v.provider,
+        calls: v.calls,
+      })),
+    );
+  }, [heatmapQuery.data, range]);
+
+  const statusLabels = {
+    ok: t("dashboard.charts.statusOk"),
+    c4xx: t("dashboard.charts.status4xx"),
+    c5xx: t("dashboard.charts.status5xx"),
+  };
+  const statusData = useMemo(
+    () =>
+      (statusQuery.data ?? []).flatMap((p) => [
+        {
+          time: formatTime(p.ts, range),
+          metric: statusLabels.ok,
+          value: p.ok_2xx,
+        },
+        {
+          time: formatTime(p.ts, range),
+          metric: statusLabels.c4xx,
+          value: p.client_4xx,
+        },
+        {
+          time: formatTime(p.ts, range),
+          metric: statusLabels.c5xx,
+          value: p.server_5xx,
+        },
+      ]),
+    [
+      statusQuery.data,
+      range,
+      statusLabels.ok,
+      statusLabels.c4xx,
+      statusLabels.c5xx,
+    ],
+  );
+
+  const cacheTables = cacheTablesQuery.data ?? [];
+  const totalCacheRows = cacheTables.reduce(
+    (sum, tbl) => sum + tbl.row_count,
+    0,
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setOrder((prev) => {
+      const oldIdx = prev.indexOf(active.id as ChartId);
+      const newIdx = prev.indexOf(over.id as ChartId);
+      if (oldIdx < 0 || newIdx < 0) return prev;
+      return arrayMove(prev, oldIdx, newIdx);
+    });
   };
 
-  const pieConfig = {
-    angleField: "calls",
-    background: "transparent",
-    colorField: "provider",
-    data: pieData,
-    height: 260,
-    innerRadius: 0.5,
-    label: {
-      fill: chartPalette.muted,
-      fontSize: 12,
-      text: (datum: PieDatum) => {
-        const percent = datum.percent ?? 0;
-        return `${datum.provider} ${new Intl.NumberFormat(undefined, {
-          maximumFractionDigits: 0,
-          style: "percent",
-        }).format(percent)}`;
-      },
-    },
-    legend: { color: { itemLabelFill: chartPalette.text, position: "right" } },
-    scale: { color: { range: PIE_COLORS } },
-    state: { active: { scale: 1.04 } },
-    theme: { colors: PIE_COLORS },
+  const renderChart = (
+    id: ChartId,
+    handleProps: Record<string, unknown>,
+  ): React.ReactNode => {
+    switch (id) {
+      case "chart-timeseries":
+        return (
+          <ChartCard
+            key={id}
+            metric={t("dashboard.charts.volume")}
+            value={formatNumber(totalCallsInRange)}
+            hint={t("dashboard.charts.heroCalls")}
+            dragHandleProps={handleProps}
+            trailing={
+              <Segmented
+                size="small"
+                value={range}
+                onChange={(v) => setRange(v as RangeKey)}
+                options={[
+                  { label: t("dashboard.range.1h"), value: "1h" },
+                  { label: t("dashboard.range.24h"), value: "24h" },
+                  { label: t("dashboard.range.7d"), value: "7d" },
+                ]}
+              />
+            }
+          >
+            {timeseriesQuery.isError ? (
+              <ChartError
+                error={timeseriesQuery.error}
+                onRetry={() => timeseriesQuery.refetch()}
+              />
+            ) : timeseriesQuery.isLoading ? (
+              <ChartFallback />
+            ) : timeseries.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <Suspense fallback={<ChartFallback />}>
+                <Line
+                  key={`ts-${themeKey}`}
+                  {...timeseriesLineConfig(lineData, resolvedMode, lineLabels)}
+                />
+              </Suspense>
+            )}
+          </ChartCard>
+        );
+
+      case "chart-cache-ring": {
+        const ratio = overview?.cache_hit_ratio_24h ?? 0;
+        return (
+          <ChartCard
+            key={id}
+            metric={t("dashboard.charts.cacheHit")}
+            value={`${(ratio * 100).toFixed(1)}%`}
+            hint={t("dashboard.subtitles.totalRows")}
+            dragHandleProps={handleProps}
+          >
+            {overviewQuery.isLoading ? (
+              <ChartFallback />
+            ) : (
+              <div className="flex flex-1 items-center justify-center">
+                <div className="relative">
+                  <ActivityRing value={ratio} size={180} stroke={18} />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-3xl font-semibold tracking-[-0.04em] text-fg-light tabular-nums dark:text-fg-dark">
+                      {(ratio * 100).toFixed(0)}%
+                    </span>
+                    <span className="mt-0.5 text-[10px] font-semibold tracking-[0.08em] text-fg-muted-light uppercase dark:text-fg-muted-dark">
+                      {t("dashboard.charts.cacheHit")}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </ChartCard>
+        );
+      }
+
+      case "chart-top-providers":
+        return (
+          <ChartCard
+            key={id}
+            metric={t("dashboard.charts.topProviders")}
+            value={formatNumber(pieTotal)}
+            hint={t("dashboard.charts.calls")}
+            dragHandleProps={handleProps}
+          >
+            {providersQuery.isError ? (
+              <ChartError
+                error={providersQuery.error}
+                onRetry={() => providersQuery.refetch()}
+              />
+            ) : providersQuery.isLoading ? (
+              <ChartFallback />
+            ) : pieData.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <Suspense fallback={<ChartFallback />}>
+                <Pie
+                  key={`pie-${themeKey}`}
+                  {...pieConfig(pieData, resolvedMode)}
+                />
+              </Suspense>
+            )}
+          </ChartCard>
+        );
+
+      case "chart-by-provider":
+        return (
+          <ChartCard
+            key={id}
+            metric={t("dashboard.charts.byProvider")}
+            value={formatNumber(sortedProviders.length)}
+            hint={t("dashboard.cards.providers")}
+            dragHandleProps={handleProps}
+          >
+            {providersQuery.isError ? (
+              <ChartError
+                error={providersQuery.error}
+                onRetry={() => providersQuery.refetch()}
+              />
+            ) : providersQuery.isLoading ? (
+              <ChartFallback />
+            ) : columnData.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <Suspense fallback={<ChartFallback />}>
+                <Column
+                  key={`col-${themeKey}`}
+                  {...providerColumnConfig(
+                    columnData,
+                    resolvedMode,
+                    columnLabels,
+                  )}
+                />
+              </Suspense>
+            )}
+          </ChartCard>
+        );
+
+      case "chart-latency":
+        return (
+          <ChartCard
+            key={id}
+            metric={t("dashboard.charts.latency")}
+            value={`${Math.round(latestP95)}ms`}
+            hint={`p50 ${Math.round(latestP50)}ms`}
+            dragHandleProps={handleProps}
+          >
+            {timeseriesQuery.isError ? (
+              <ChartError
+                error={timeseriesQuery.error}
+                onRetry={() => timeseriesQuery.refetch()}
+              />
+            ) : timeseriesQuery.isLoading ? (
+              <ChartFallback />
+            ) : latencyData.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <Suspense fallback={<ChartFallback />}>
+                <Line
+                  key={`lat-${themeKey}`}
+                  {...latencyLineConfig(
+                    latencyData,
+                    resolvedMode,
+                    latencyLabels,
+                  )}
+                />
+              </Suspense>
+            )}
+          </ChartCard>
+        );
+
+      case "chart-errors-area":
+        return (
+          <ChartCard
+            key={id}
+            metric={t("dashboard.charts.errorsArea")}
+            value={formatNumber(totalErrorsInRange)}
+            hint={t("dashboard.charts.errors")}
+            dragHandleProps={handleProps}
+          >
+            {timeseriesQuery.isError ? (
+              <ChartError
+                error={timeseriesQuery.error}
+                onRetry={() => timeseriesQuery.refetch()}
+              />
+            ) : timeseriesQuery.isLoading ? (
+              <ChartFallback />
+            ) : errorsAreaData.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <Suspense fallback={<ChartFallback />}>
+                <Area
+                  key={`err-${themeKey}`}
+                  {...errorsAreaConfig(errorsAreaData, resolvedMode)}
+                />
+              </Suspense>
+            )}
+          </ChartCard>
+        );
+
+      case "chart-heatmap":
+        return (
+          <ChartCard
+            key={id}
+            metric={t("dashboard.charts.heatmap")}
+            value={formatNumber(heatmapQuery.data?.providers.length ?? 0)}
+            hint={t("dashboard.cards.providers")}
+            dragHandleProps={handleProps}
+          >
+            {heatmapQuery.isError ? (
+              <ChartError
+                error={heatmapQuery.error}
+                onRetry={() => heatmapQuery.refetch()}
+              />
+            ) : heatmapQuery.isLoading ? (
+              <ChartFallback />
+            ) : heatmapData.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <Suspense fallback={<ChartFallback />}>
+                <Heatmap
+                  key={`heat-${themeKey}`}
+                  {...heatmapConfig(heatmapData, resolvedMode)}
+                />
+              </Suspense>
+            )}
+          </ChartCard>
+        );
+
+      case "chart-status-codes":
+        return (
+          <ChartCard
+            key={id}
+            metric={t("dashboard.charts.statusCodes")}
+            value={formatNumber(
+              (statusQuery.data ?? []).reduce(
+                (sum, p) => sum + p.ok_2xx + p.client_4xx + p.server_5xx,
+                0,
+              ),
+            )}
+            hint={t("dashboard.charts.calls")}
+            dragHandleProps={handleProps}
+          >
+            {statusQuery.isError ? (
+              <ChartError
+                error={statusQuery.error}
+                onRetry={() => statusQuery.refetch()}
+              />
+            ) : statusQuery.isLoading ? (
+              <ChartFallback />
+            ) : statusData.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <Suspense fallback={<ChartFallback />}>
+                <Column
+                  key={`status-${themeKey}`}
+                  {...statusCodesConfig(statusData, resolvedMode, statusLabels)}
+                />
+              </Suspense>
+            )}
+          </ChartCard>
+        );
+
+      case "chart-cache-tables":
+        return (
+          <ChartCard
+            key={id}
+            metric={t("dashboard.charts.cacheTables")}
+            value={formatNumber(totalCacheRows)}
+            hint={t("dashboard.charts.rows")}
+            dragHandleProps={handleProps}
+          >
+            {cacheTablesQuery.isError ? (
+              <ChartError
+                error={cacheTablesQuery.error}
+                onRetry={() => cacheTablesQuery.refetch()}
+              />
+            ) : cacheTablesQuery.isLoading ? (
+              <ChartFallback />
+            ) : cacheTables.length === 0 ? (
+              <EmptyChart />
+            ) : (
+              <ul className="flex flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
+                {cacheTables
+                  .slice()
+                  .sort((a, b) => b.row_count - a.row_count)
+                  .map((tbl) => (
+                    <li
+                      key={tbl.name}
+                      className="flex items-center justify-between rounded-lg px-2 py-1.5 text-xs hover:bg-fill-tertiary-light dark:hover:bg-fill-tertiary-dark"
+                    >
+                      <span className="truncate font-mono text-fg-light dark:text-fg-dark">
+                        {tbl.name}
+                      </span>
+                      <span className="ml-3 flex shrink-0 items-baseline gap-2 text-fg-muted-light tabular-nums dark:text-fg-muted-dark">
+                        <span className="font-semibold text-fg-light dark:text-fg-dark">
+                          {formatNumber(tbl.row_count)}
+                        </span>
+                        <span className="text-[10px]">
+                          {formatTtlShort(tbl.avg_ttl_remaining_seconds)}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </ChartCard>
+        );
+    }
   };
 
-  const columnConfig = {
-    axis: {
-      x: { labelFill: chartPalette.axis, lineStroke: chartPalette.border },
-      y: { gridStroke: chartPalette.border, labelFill: chartPalette.axis },
-    },
-    background: "transparent",
-    color: "#8b5cf6",
-    data: columnData,
-    height: 260,
-    legend: false,
-    style: {
-      fill: "#8b5cf6",
-      radiusTopLeft: 4,
-      radiusTopRight: 4,
-    },
-    theme: { colors: ["#8b5cf6"] },
-    xField: "provider",
-    yField: "calls",
-  };
-
-  const columns: TableProps<DashboardRecentError>["columns"] = [
+  const recentErrorColumns: TableProps<DashboardRecentError>["columns"] = [
     {
       key: "ts",
-      render: (_, record) => formatRelativeTime(record.ts, t),
       title: t("dashboard.columns.time"),
+      render: (_, r) => formatRelative(r.ts, t),
     },
     {
-      dataIndex: "provider",
       key: "provider",
-      render: (value: DashboardRecentError["provider"]) => (
+      dataIndex: "provider",
+      title: t("dashboard.columns.provider"),
+      render: (v: string) => (
         <span className="font-semibold text-fg-light dark:text-fg-dark">
-          {value}
+          {v}
         </span>
       ),
-      title: t("dashboard.columns.provider"),
     },
     {
-      dataIndex: "status",
       key: "status",
+      dataIndex: "status",
       title: t("dashboard.columns.status"),
     },
     {
-      dataIndex: "duration_ms",
       key: "duration_ms",
-      render: (value: DashboardRecentError["duration_ms"]) =>
-        t("dashboard.units.ms", { value }),
+      dataIndex: "duration_ms",
       title: t("dashboard.columns.duration"),
-    },
-  ];
-
-  const statCards = [
-    {
-      icon: <KeyOutlined />,
-      key: "keys",
-      subtitle: t("dashboard.subtitles.active"),
-      title: t("dashboard.cards.keys"),
-      value: overview?.total_keys ?? 0,
-    },
-    {
-      icon: <ApiOutlined />,
-      key: "providers",
-      subtitle: t("dashboard.subtitles.configured"),
-      title: t("dashboard.cards.providers"),
-      value: overview?.total_providers ?? 0,
-    },
-    {
-      icon: <DatabaseOutlined />,
-      key: "cache",
-      subtitle: t("dashboard.subtitles.totalRows"),
-      title: t("dashboard.cards.cacheEntries"),
-      value: overview?.cache_entries_total ?? 0,
-    },
-    {
-      icon: <ThunderboltOutlined />,
-      key: "calls",
-      subtitle: (
-        <Typography.Text type={errorRate > 0.01 ? "danger" : "secondary"}>
-          {t("dashboard.cards.errorRate", {
-            calls: formatNumber(overview?.calls_24h ?? 0),
-            errors: formatNumber(overview?.errors_24h ?? 0),
-            rate: new Intl.NumberFormat(undefined, {
-              maximumFractionDigits: 2,
-              style: "percent",
-            }).format(errorRate),
-          })}
-        </Typography.Text>
-      ),
-      title: t("dashboard.cards.calls24h"),
-      value: overview?.calls_24h ?? 0,
+      render: (v: number) => t("dashboard.units.ms", { value: v }),
     },
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6">
-      <Typography.Title
-        level={2}
-        className="m-0 text-2xl tracking-[-0.03em] text-fg-light dark:text-fg-dark"
-      >
-        {t("dashboard.title")}
-      </Typography.Title>
+    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6">
+      <div className="flex items-end justify-between gap-4">
+        <Typography.Title
+          level={2}
+          className="m-0 text-2xl font-semibold tracking-[-0.03em] text-fg-light dark:text-fg-dark"
+        >
+          {t("dashboard.title")}
+        </Typography.Title>
+      </div>
 
       {overviewQuery.isError ? (
-        <ErrorState
+        <ChartError
           error={overviewQuery.error}
           onRetry={() => overviewQuery.refetch()}
         />
-      ) : (
-        <Row gutter={[24, 24]}>
-          {statCards.map((card) => (
-            <Col xs={24} sm={12} xl={6} key={card.key}>
-              <Card className={cardClass} classNames={{ body: "p-5" }}>
-                {overviewQuery.isLoading ? (
-                  <Skeleton active paragraph={false} />
-                ) : (
-                  <div className="flex items-start gap-4">
-                    <span className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-input border border-border-light bg-zinc-100 text-fg-muted-light dark:border-border-dark dark:bg-[#18181c] dark:text-fg-muted-dark">
-                      {card.icon}
-                    </span>
-                    <div className="min-w-0">
-                      <Statistic
-                        title={
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold tracking-[0.08em] text-fg-muted-light uppercase dark:text-fg-muted-dark">
-                            <ArrowUpOutlined className="text-[10px] text-brand-500" />
-                            {card.title}
-                          </span>
-                        }
-                        value={card.value}
-                        formatter={(value) => (
-                          <span className="gradient-text text-[28px] leading-none font-semibold tracking-[-0.04em]">
-                            {formatNumber(Number(value))}
-                          </span>
-                        )}
-                      />
-                      <div className="mt-2 text-xs text-fg-muted-light dark:text-fg-muted-dark">
-                        {card.subtitle}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      )}
+      ) : null}
 
-      {overview?.calls_24h === 0 ? <EmptyDashboard /> : null}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={order} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            {order.map((id) => (
+              <SortableSlot key={id} id={id}>
+                {(handle) => renderChart(id, handle)}
+              </SortableSlot>
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
-      <Row gutter={[24, 24]}>
-        <Col xs={24} xl={16}>
-          <Card
-            className={cardClass}
-            classNames={{
-              body: "bg-panel-light dark:bg-panel-dark",
-              header:
-                "min-h-12 border-border-light text-sm font-semibold dark:border-border-dark",
-            }}
-            title={
-              <div className="flex items-center justify-between gap-3">
-                <span>{t("dashboard.charts.volume")}</span>
-                <Segmented
-                  value={range}
-                  onChange={(value) => setRange(String(value))}
-                  options={RANGE_OPTIONS.map((item) => ({
-                    label: t(item.labelKey),
-                    value: item.value,
-                  }))}
-                />
-              </div>
-            }
-          >
-            <div className={chartBodyClass}>
-              {timeseriesQuery.isError ? (
-                <ErrorState
-                  error={timeseriesQuery.error}
-                  onRetry={() => timeseriesQuery.refetch()}
-                />
-              ) : timeseriesQuery.isLoading ? (
-                <Skeleton active />
-              ) : lineData.length === 0 ? (
-                <EmptyDashboard />
-              ) : (
-                <Suspense fallback={<Skeleton active />}>
-                  <Line key={`line-${chartKey}`} {...lineConfig} />
-                </Suspense>
-              )}
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} xl={8}>
-          <Card
-            className={cardClass}
-            classNames={{
-              body: "bg-panel-light dark:bg-panel-dark",
-              header:
-                "min-h-12 border-border-light text-sm font-semibold dark:border-border-dark",
-            }}
-            title={t("dashboard.charts.topProviders")}
-          >
-            <div className={shortChartClass}>
-              {providersQuery.isError ? (
-                <ErrorState
-                  error={providersQuery.error}
-                  onRetry={() => providersQuery.refetch()}
-                />
-              ) : providersQuery.isLoading ? (
-                <Skeleton active />
-              ) : pieData.length === 0 ? (
-                <EmptyDashboard />
-              ) : (
-                <Suspense fallback={<Skeleton active />}>
-                  <Pie key={`pie-${chartKey}`} {...pieConfig} />
-                </Suspense>
-              )}
-            </div>
-          </Card>
-        </Col>
-      </Row>
-
-      <Row gutter={[24, 24]}>
-        <Col xs={24} xl={14}>
-          <Card
-            className={cardClass}
-            classNames={{
-              body: "bg-panel-light dark:bg-panel-dark",
-              header:
-                "min-h-12 border-border-light text-sm font-semibold dark:border-border-dark",
-            }}
-            title={t("dashboard.charts.byProvider")}
-          >
-            <div className={shortChartClass}>
-              {providersQuery.isError ? (
-                <ErrorState
-                  error={providersQuery.error}
-                  onRetry={() => providersQuery.refetch()}
-                />
-              ) : providersQuery.isLoading ? (
-                <Skeleton active />
-              ) : columnData.length === 0 ? (
-                <EmptyDashboard />
-              ) : (
-                <Suspense fallback={<Skeleton active />}>
-                  <Column key={`column-${chartKey}`} {...columnConfig} />
-                </Suspense>
-              )}
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} xl={10}>
-          <Card
-            className={cardClass}
-            classNames={{
-              body: "bg-panel-light dark:bg-panel-dark p-0",
-              header:
-                "min-h-12 border-border-light text-sm font-semibold dark:border-border-dark",
-            }}
-            title={t("dashboard.charts.recentErrors")}
-          >
-            {recentErrorsQuery.isError ? (
-              <div className="p-6">
-                <ErrorState
-                  error={recentErrorsQuery.error}
-                  onRetry={() => recentErrorsQuery.refetch()}
-                />
-              </div>
-            ) : (
-              <div className={tableWrapperClass}>
-                <Table
-                  columns={columns}
-                  dataSource={recentErrorsQuery.data ?? []}
-                  loading={recentErrorsQuery.isLoading}
-                  pagination={false}
-                  rowKey={(record) =>
-                    `${record.ts}-${record.provider}-${record.status}`
-                  }
-                  size="small"
-                />
-              </div>
-            )}
-          </Card>
-        </Col>
-      </Row>
+      <div className="rounded-2xl border border-border-light bg-panel-light p-5 shadow-[0_1px_2px_0_rgba(0,0,0,0.04),0_1px_3px_0_rgba(0,0,0,0.06)] dark:border-border-dark dark:bg-panel-dark">
+        <div className="mb-3 text-[11px] font-semibold tracking-[0.08em] text-fg-muted-light uppercase dark:text-fg-muted-dark">
+          {t("dashboard.charts.recentErrors")}
+        </div>
+        {recentErrorsQuery.isError ? (
+          <ChartError
+            error={recentErrorsQuery.error}
+            onRetry={() => recentErrorsQuery.refetch()}
+          />
+        ) : (
+          <Table
+            columns={recentErrorColumns}
+            dataSource={recentErrorsQuery.data ?? []}
+            loading={recentErrorsQuery.isLoading}
+            pagination={false}
+            rowKey={(r) => `${r.ts}-${r.provider}-${r.status}`}
+            size="small"
+            className="[&_.ant-table]:!bg-transparent [&_.ant-table-cell]:!border-border-light dark:[&_.ant-table-cell]:!border-border-dark [&_.ant-table-thead>tr>th]:!bg-transparent [&_.ant-table-thead>tr>th]:!text-fg-muted-light dark:[&_.ant-table-thead>tr>th]:!text-fg-muted-dark"
+          />
+        )}
+      </div>
     </div>
   );
 }
+
 export default DashboardPage;

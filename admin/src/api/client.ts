@@ -106,6 +106,30 @@ export interface DashboardTimeseriesPoint {
   errors: number;
   hits: number;
   misses: number;
+  p50_ms?: number;
+  p95_ms?: number;
+}
+
+export interface DashboardHeatmapValue {
+  provider: string;
+  calls: number;
+}
+
+export interface DashboardHeatmapBucket {
+  ts: number;
+  values: DashboardHeatmapValue[];
+}
+
+export interface DashboardHeatmap {
+  providers: string[];
+  buckets: DashboardHeatmapBucket[];
+}
+
+export interface DashboardStatusCodePoint {
+  ts: number;
+  ok_2xx: number;
+  client_4xx: number;
+  server_5xx: number;
 }
 
 export interface DashboardProviderStats {
@@ -137,10 +161,13 @@ export async function getDashboardOverview(): Promise<DashboardOverview> {
 }
 
 export async function getDashboardTimeseries(
-  range: string,
-  bucket: string,
+  rangeSecs: number,
+  bucketSecs: number,
 ): Promise<DashboardTimeseriesPoint[]> {
-  const params = new URLSearchParams({ range, bucket });
+  const params = new URLSearchParams({
+    range_secs: String(rangeSecs),
+    bucket_secs: String(bucketSecs),
+  });
   const res = await fetch(
     `${API_BASE}/admin/dashboard/timeseries?${params.toString()}`,
     {
@@ -156,9 +183,9 @@ export async function getDashboardTimeseries(
 }
 
 export async function getDashboardByProvider(
-  range: string,
+  rangeSecs: number,
 ): Promise<DashboardProviderStats[]> {
-  const params = new URLSearchParams({ range });
+  const params = new URLSearchParams({ range_secs: String(rangeSecs) });
   const res = await fetch(
     `${API_BASE}/admin/dashboard/by-provider?${params.toString()}`,
     {
@@ -186,6 +213,50 @@ export async function getDashboardRecentErrors(
 
   if (!res.ok) {
     throw new Error("Failed to fetch dashboard recent errors");
+  }
+
+  return res.json();
+}
+
+export async function getDashboardHeatmap(
+  rangeSecs: number,
+  bucketSecs: number,
+): Promise<DashboardHeatmap> {
+  const params = new URLSearchParams({
+    range_secs: String(rangeSecs),
+    bucket_secs: String(bucketSecs),
+  });
+  const res = await fetch(
+    `${API_BASE}/admin/dashboard/heatmap?${params.toString()}`,
+    {
+      headers: getHeaders(),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch dashboard heatmap");
+  }
+
+  return res.json();
+}
+
+export async function getDashboardStatusCodes(
+  rangeSecs: number,
+  bucketSecs: number,
+): Promise<DashboardStatusCodePoint[]> {
+  const params = new URLSearchParams({
+    range_secs: String(rangeSecs),
+    bucket_secs: String(bucketSecs),
+  });
+  const res = await fetch(
+    `${API_BASE}/admin/dashboard/status-codes?${params.toString()}`,
+    {
+      headers: getHeaders(),
+    },
+  );
+
+  if (!res.ok) {
+    throw new Error("Failed to fetch dashboard status codes");
   }
 
   return res.json();
