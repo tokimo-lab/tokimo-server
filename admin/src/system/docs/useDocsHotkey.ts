@@ -2,11 +2,10 @@ import { useEffect } from "react";
 import { useDocsContext } from "./DocsProvider";
 
 /**
- * Global hotkey: Cmd/Ctrl + ? toggles the Docs Hub panel.
+ * Global hotkey: Cmd/Ctrl + / toggles the Docs Hub panel.
  *
- * `?` is produced by Shift+/ on most layouts. We match `e.key === "?"` plus a
- * meta or ctrl modifier. We also swallow the event to avoid scroll/find
- * conflicts.
+ * We match `e.key === "/"` plus a meta or ctrl modifier, without requiring Shift.
+ * We also swallow the event to avoid scroll/find conflicts.
  */
 export function useDocsHotkey() {
   const { open, setOpen, minimized, setMinimized } = useDocsContext();
@@ -14,7 +13,7 @@ export function useDocsHotkey() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key !== "?" && !(e.shiftKey && e.key === "/")) return;
+      if (e.key !== "/" || e.shiftKey) return;
       e.preventDefault();
       if (!open) {
         setOpen(true);

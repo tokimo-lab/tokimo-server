@@ -237,7 +237,7 @@ const zh: Resources = {
   },
   docsHub: {
     title: "文档中心",
-    fabTooltip: "打开文档中心 (Cmd/Ctrl+?)",
+    fabTooltip: "打开文档中心 (Cmd/Ctrl+/)",
     minimize: "最小化",
     expand: "展开",
     close: "关闭",

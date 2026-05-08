@@ -237,7 +237,7 @@ const en = {
   },
   docsHub: {
     title: "Docs Hub",
-    fabTooltip: "Open Docs Hub (Cmd/Ctrl+?)",
+    fabTooltip: "Open Docs Hub (Cmd/Ctrl+/)",
     minimize: "Minimize",
     expand: "Expand",
     close: "Close",
