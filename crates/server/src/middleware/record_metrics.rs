@@ -11,12 +11,23 @@ use crate::{
     AppState,
 };
 
+/// Path prefixes that should bypass `MetricsStore` recording entirely.
+/// These are server-internal endpoints (admin dashboard, health probes,
+/// reserved internal APIs). Including them would pollute provider stats
+/// with the admin dashboard's own polling traffic.
+const SKIP_PREFIXES: &[&str] = &["/api/admin/", "/api/health", "/api/_internal/"];
+
 pub async fn record_metrics(State(state): State<AppState>, req: Request, next: Next) -> Response {
     let path = req
         .extensions()
         .get::<OriginalUri>()
         .map(|uri| uri.0.path().to_owned())
         .unwrap_or_else(|| req.uri().path().to_owned());
+
+    if SKIP_PREFIXES.iter().any(|p| path.starts_with(p)) {
+        return next.run(req).await;
+    }
+
     let provider = extract_provider(&path);
     let started_at = Instant::now();
 
