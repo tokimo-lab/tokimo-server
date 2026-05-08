@@ -1,3 +1,4 @@
+pub mod animetosho;
 pub mod assrt;
 pub mod baidu_hot;
 pub mod baidu_sports;

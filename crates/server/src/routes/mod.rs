@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod animetosho;
 pub mod assrt;
 pub mod bangumi;
 pub mod bing_wallpaper;
@@ -71,6 +72,7 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/regielive", provider_routes(regielive::routes(), &state))
         .nest("/gestdown", provider_routes(gestdown::routes(), &state))
         .nest("/shooter", provider_routes(shooter::routes(), &state))
+        .nest("/animetosho", provider_routes(animetosho::routes(), &state))
         .fallback(api_not_found)
         .layer(middleware::from_fn_with_state(state.clone(), record_metrics))
         .with_state(state)

@@ -1,3 +1,4 @@
+pub mod animetosho_cache;
 pub mod assets;
 pub mod assrt_searches;
 pub mod assrt_sub_details;
@@ -41,6 +42,7 @@ pub mod tmdb_objects;
 pub mod wikipedia_summaries;
 pub mod zenquotes_cache;
 
+pub use animetosho_cache::Entity as AnimetoshoCache;
 pub use assets::Entity as Assets;
 pub use assrt_searches::Entity as AssrtSearches;
 pub use assrt_sub_details::Entity as AssrtSubDetails;

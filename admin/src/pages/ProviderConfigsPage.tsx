@@ -279,6 +279,15 @@ const PROVIDERS: ProviderRow[] = [
     authRequired: "no",
     envVars: [],
   },
+  {
+    key: "animetosho",
+    provider: "AnimeTosho (anime feed)",
+    prefix: "/api/animetosho/...",
+    sample: "/api/animetosho/search?q=Frieren",
+    rateLimit: "10/s",
+    authRequired: "no",
+    envVars: [],
+  },
 ];
 
 interface FetchResult {
