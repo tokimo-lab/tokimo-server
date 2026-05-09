@@ -138,6 +138,152 @@ const en = {
       copyResponse: "Copy response",
       copiedResponse: "Response copied",
     },
+
+    tmdb: {
+      name: "TMDB",
+      description:
+        "Movie and TV metadata from The Movie Database; requires configured API key.",
+    },
+    omdb: {
+      name: "OMDb",
+      description:
+        "IMDb-linked movie metadata from the Open Movie Database; requires configured API key.",
+    },
+    thetvdb: {
+      name: "TheTVDB",
+      description:
+        "Series and episode metadata from TheTVDB; requires configured API key.",
+    },
+    bangumi: {
+      name: "Bangumi",
+      description:
+        "Anime and media metadata from Bangumi; requires configured user-agent.",
+    },
+    fanart: {
+      name: "Fanart.tv",
+      description:
+        "Artwork assets for movies and shows from Fanart.tv; requires configured API key.",
+    },
+    douban: {
+      name: "Douban",
+      description:
+        "Chinese movie and TV search metadata from Douban for localized cataloging.",
+    },
+    spotify: {
+      name: "Spotify",
+      description:
+        "Track, album, and artist metadata from Spotify; requires configured API key.",
+    },
+    musicbrainz: {
+      name: "MusicBrainz",
+      description:
+        "Open music metadata for artists, releases, and recordings; requires configured user-agent.",
+    },
+    deezer: {
+      name: "Deezer",
+      description:
+        "Music search and track metadata from Deezer for cross-source enrichment.",
+    },
+    lrclib: {
+      name: "LrcLib",
+      description:
+        "Lyrics lookup by artist and track from LrcLib for music subtitle scenarios.",
+    },
+    qidian: {
+      name: "Qidian",
+      description:
+        "Online novel search metadata from Qidian for book discovery workflows.",
+    },
+    wikipedia: {
+      name: "Wikipedia",
+      description:
+        "Article summary and encyclopedia context from Wikipedia by title and language.",
+    },
+    openmeteo: {
+      name: "Open-Meteo",
+      description:
+        "Weather forecast data by coordinates from Open-Meteo for weather widgets.",
+    },
+    nominatim: {
+      name: "Nominatim",
+      description:
+        "OpenStreetMap geocoding and place search via Nominatim; requires configured user-agent.",
+    },
+    geocoding: {
+      name: "Geocoding",
+      description:
+        "Unified forward geocoding endpoint backed by OpenStreetMap data; requires configured user-agent.",
+    },
+    holiday: {
+      name: "Holiday",
+      description:
+        "Public holiday calendars by country and year for planning and reminder features.",
+    },
+    assrt: {
+      name: "ASSRT",
+      description:
+        "Chinese subtitle search from ASSRT; requires configured API key.",
+    },
+    opensubtitles: {
+      name: "OpenSubtitles",
+      description:
+        "Subtitle search by IMDb ID and language from OpenSubtitles; requires configured API key.",
+    },
+    regielive: {
+      name: "RegieLive",
+      description:
+        "Romanian subtitle search source for multilingual subtitle discovery.",
+    },
+    gestdown: {
+      name: "Gestdown",
+      description:
+        "TV subtitle index and show lookup from Gestdown for subtitle sourcing.",
+    },
+    shooter: {
+      name: "Shooter",
+      description:
+        "Hash-based Chinese subtitle matching from Shooter for local media files.",
+    },
+    animetosho: {
+      name: "AnimeTosho",
+      description:
+        "Anime subtitle and release search from AnimeTosho for anime-focused workflows.",
+    },
+    hot: {
+      name: "Hot List",
+      description:
+        "Aggregated real-time trending topics from supported platforms for news hotspots.",
+    },
+    sports: {
+      name: "Sports Schedule",
+      description:
+        "Sports event schedules and hot matches for scoreboards and daily sports views.",
+    },
+    currency: {
+      name: "Currency Rates",
+      description:
+        "Exchange-rate queries for target currencies for conversion and finance widgets.",
+    },
+    github: {
+      name: "GitHub Releases",
+      description:
+        "Repository release metadata from GitHub; optional token improves rate limits.",
+    },
+    hitokoto: {
+      name: "Hitokoto",
+      description:
+        "Random short quote sentences for daily inspiration and lightweight content cards.",
+    },
+    zenquotes: {
+      name: "ZenQuotes",
+      description:
+        "Inspirational quote feed from ZenQuotes for quote and motivation displays.",
+    },
+    bing: {
+      name: "Bing Wallpaper",
+      description:
+        "Daily wallpaper metadata from Bing for background and wallpaper features.",
+    },
   },
   dashboard: {
     title: "Dashboard",

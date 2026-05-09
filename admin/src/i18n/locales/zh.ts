@@ -139,6 +139,135 @@ const zh: Resources = {
       copyResponse: "复制响应",
       copiedResponse: "响应已复制",
     },
+
+    tmdb: {
+      name: "TMDB",
+      description:
+        "来自 The Movie Database 的影视元数据，用于影片与剧集信息补全；requires configured API key。",
+    },
+    omdb: {
+      name: "OMDb",
+      description:
+        "来自 Open Movie Database 的 IMDb 关联影视元数据，用于详情页补充；requires configured API key。",
+    },
+    thetvdb: {
+      name: "TheTVDB",
+      description:
+        "来自 TheTVDB 的剧集、季与集信息，用于电视剧元数据同步；requires configured API key。",
+    },
+    bangumi: {
+      name: "Bangumi",
+      description:
+        "Bangumi 动漫与条目元数据源，适合中文/日文内容编目；需要配置 User-Agent。",
+    },
+    fanart: {
+      name: "Fanart.tv",
+      description:
+        "Fanart.tv 海报与背景图等视觉素材源，用于媒体封面补全；requires configured API key。",
+    },
+    douban: {
+      name: "豆瓣",
+      description: "豆瓣影视搜索与条目元数据源，适合中文内容检索与对照。",
+    },
+    spotify: {
+      name: "Spotify",
+      description:
+        "Spotify 的歌曲、专辑、艺人元数据源，用于音乐信息聚合；requires configured API key。",
+    },
+    musicbrainz: {
+      name: "MusicBrainz",
+      description:
+        "开放音乐元数据库，提供艺人、发行、录音等结构化信息；需要配置 User-Agent。",
+    },
+    deezer: {
+      name: "Deezer",
+      description: "Deezer 音乐检索与曲目信息源，用于跨平台音乐元数据补全。",
+    },
+    lrclib: {
+      name: "LrcLib",
+      description: "按歌手与曲名检索歌词，用于音乐字幕与歌词展示场景。",
+    },
+    qidian: {
+      name: "起点",
+      description: "起点小说搜索元数据源，用于书籍发现与书单扩展。",
+    },
+    wikipedia: {
+      name: "Wikipedia",
+      description: "按标题与语言获取百科摘要，用于知识补充与简介展示。",
+    },
+    openmeteo: {
+      name: "Open-Meteo",
+      description: "按经纬度提供天气预报数据，适用于天气卡片与行程提醒。",
+    },
+    nominatim: {
+      name: "Nominatim",
+      description:
+        "基于 OpenStreetMap 的地点检索与地理编码服务；需要配置 User-Agent。",
+    },
+    geocoding: {
+      name: "Geocoding",
+      description:
+        "统一地理编码接口（正向/地点查询），用于地址到坐标转换；需要配置 User-Agent。",
+    },
+    holiday: {
+      name: "节假日",
+      description: "按国家和年份查询公共节假日，用于日历、提醒与排期功能。",
+    },
+    assrt: {
+      name: "ASSRT",
+      description:
+        "ASSRT 中文字幕检索源，适合影视字幕发现；requires configured API key。",
+    },
+    opensubtitles: {
+      name: "OpenSubtitles",
+      description:
+        "按 IMDb 与语言检索字幕，用于多语言字幕匹配；requires configured API key。",
+    },
+    regielive: {
+      name: "RegieLive",
+      description: "RegieLive 字幕检索源，补充罗马尼亚语等地区字幕资源。",
+    },
+    gestdown: {
+      name: "Gestdown",
+      description: "Gestdown 剧集字幕索引服务，用于美剧等内容字幕查找。",
+    },
+    shooter: {
+      name: "Shooter",
+      description:
+        "基于文件哈希的 Shooter 字幕匹配源，适合本地视频快速找字幕。",
+    },
+    animetosho: {
+      name: "AnimeTosho",
+      description: "AnimeTosho 动漫相关字幕/发布检索源，面向动漫场景。",
+    },
+    hot: {
+      name: "热榜",
+      description: "聚合多平台实时热榜数据，用于热点追踪与资讯场景。",
+    },
+    sports: {
+      name: "体育赛程",
+      description: "提供热门赛事与赛程数据，用于体育看板和比赛提醒。",
+    },
+    currency: {
+      name: "汇率",
+      description: "查询目标货币汇率，用于换算、财经卡片与价格展示。",
+    },
+    github: {
+      name: "GitHub Releases",
+      description: "获取仓库发行版信息；可选配置 Token 以提升调用配额。",
+    },
+    hitokoto: {
+      name: "一言",
+      description: "随机短句内容源，用于每日一句和轻内容展示。",
+    },
+    zenquotes: {
+      name: "ZenQuotes",
+      description: "励志名言数据源，用于金句卡片与激励内容场景。",
+    },
+    bing: {
+      name: "Bing 壁纸",
+      description: "Bing 每日壁纸元数据源，用于背景图与壁纸推荐。",
+    },
   },
   dashboard: {
     title: "仪表盘",
