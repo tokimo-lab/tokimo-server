@@ -164,6 +164,26 @@ const en = {
       description:
         "Artwork assets for movies and shows from Fanart.tv; requires configured API key.",
     },
+    javbus: {
+      name: "JavBus",
+      description:
+        "Adult video metadata from JavBus by video ID; optional cookie helps bypass anti-bot pages.",
+    },
+    javdb: {
+      name: "JavDB",
+      description:
+        "Adult video metadata from JavDB by video ID; optional cookie helps bypass anti-bot pages.",
+    },
+    tpdb: {
+      name: "ThePornDB",
+      description:
+        "Adult scene metadata from ThePornDB by video ID; requires configured API key.",
+    },
+    stashdb: {
+      name: "StashDB",
+      description:
+        "Adult scene metadata from StashDB GraphQL by video ID; optional API key supported.",
+    },
     douban: {
       name: "Douban",
       description:

@@ -18,9 +18,9 @@
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:5680";
 const SERVICE_KEY =
   process.env.SERVICE_KEY ?? "tks_0qcWQe7cIigPMxnpHfojnVjOAZcMwuU8";
-const TOTAL = Number(process.env.TOTAL ?? 500);
-const CONCURRENCY = Number(process.env.CONCURRENCY ?? 16);
-const REPEAT_RATIO = Number(process.env.REPEAT_RATIO ?? 0.7);
+const TOTAL = Number(process.env.TOTAL ?? 10000);
+const CONCURRENCY = Number(process.env.CONCURRENCY ?? 80);
+const REPEAT_RATIO = Number(process.env.REPEAT_RATIO ?? 0.9);
 const TIMEOUT_MS = Number(process.env.TIMEOUT_MS ?? 15000);
 
 // ---------------------------------------------------------------------------

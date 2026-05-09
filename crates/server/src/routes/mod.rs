@@ -13,6 +13,8 @@ pub mod github;
 pub mod hitokoto;
 pub mod holiday;
 pub mod hot;
+pub mod javbus;
+pub mod javdb;
 pub mod lrclib;
 pub mod musicbrainz;
 pub mod nominatim;
@@ -24,8 +26,10 @@ pub mod regielive;
 pub mod shooter;
 pub mod sports;
 pub mod spotify;
+pub mod stashdb;
 pub mod thetvdb;
 pub mod tmdb;
+pub mod tpdb;
 pub mod wikipedia;
 pub mod zenquotes;
 
@@ -51,6 +55,10 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/currency", provider_routes(currency::routes(), &state))
         .nest("/fanart", provider_routes(fanart::routes(), &state))
         .nest("/douban", provider_routes(douban::routes(), &state))
+        .nest("/javbus", provider_routes(javbus::routes(), &state))
+        .nest("/javdb", provider_routes(javdb::routes(), &state))
+        .nest("/tpdb", provider_routes(tpdb::routes(), &state))
+        .nest("/stashdb", provider_routes(stashdb::routes(), &state))
         .nest("/hot", provider_routes(hot::routes(), &state))
         .nest("/sports", provider_routes(sports::routes(), &state))
         .nest("/spotify", provider_routes(spotify::routes(), &state))

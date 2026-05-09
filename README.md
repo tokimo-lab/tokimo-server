@@ -9,7 +9,7 @@ An adapter, cache, and CDN-fronting service for third-party APIs (TMDB, Baidu Ho
 - 🌊 **Rate Limiting**: Token-bucket rate limiter persisted to PostgreSQL
 - 💾 **Caching**: Database-backed caching with TTL
 - 📦 **Asset Storage**: Local filesystem · S3-compatible (AWS S3 / MinIO) · Aliyun OSS
-- 🎬 **27 Provider Adapters**: video metadata (TMDB, OMDb, TheTVDB, Bangumi, Fanart, Douban) · music (Spotify, MusicBrainz, Deezer, LRCLIB) · books (Qidian) · encyclopedia (Wikipedia) · geo/weather (Open-Meteo, Nominatim, Geocoding) · holidays (Timor + Nager) · subtitles (Assrt, OpenSubtitles, RegieLive, Gestdown) · releases (GitHub) · trending (Baidu Hot, Baidu Sports) · quotes (Hitokoto, ZenQuotes) · wallpaper (Bing) · currency (exchange rates)
+- 🎬 **31 Provider Adapters**: video metadata (TMDB, OMDb, TheTVDB, Bangumi, Fanart, Douban, JavBus, JavDB, ThePornDB, StashDB) · music (Spotify, MusicBrainz, Deezer, LRCLIB) · books (Qidian) · encyclopedia (Wikipedia) · geo/weather (Open-Meteo, Nominatim, Geocoding) · holidays (Timor + Nager) · subtitles (Assrt, OpenSubtitles, RegieLive, Gestdown) · releases (GitHub) · trending (Baidu Hot, Baidu Sports) · quotes (Hitokoto, ZenQuotes) · wallpaper (Bing) · currency (exchange rates)
 - 🔥 **Hot Search Aggregator**: Multi-source trending topics (Weibo, Bilibili, Baidu, GitHub Trending, Hacker News, V2EX)
 
 ## Tech Stack
@@ -36,8 +36,8 @@ graph TB
         Storage[Storage Layer]
     end
     
-    subgraph Providers["Providers (27 adapters)"]
-        Video[Video: TMDB · OMDb · TheTVDB · Bangumi · Fanart · Douban]
+    subgraph Providers["Providers (31 adapters)"]
+        Video[Video: TMDB · OMDb · TheTVDB · Bangumi · Fanart · Douban · JavBus · JavDB · ThePornDB · StashDB]
         Music[Music: Spotify · MusicBrainz · Deezer · LRCLIB]
         Geo[Geo/Weather: Open-Meteo · Nominatim · Geocoding · Holiday]
         Subs[Subtitles: Assrt · OpenSubtitles · RegieLive · Gestdown]
@@ -71,7 +71,7 @@ Multi-instance deployments dedup concurrent identical requests in two tiers. The
 
 ## Provider Status
 
-All 27 adapters below follow the same pattern: typed adapter → DB cache table → cross-process single-flight → rate-limited upstream call.
+All 31 adapters below follow the same pattern: typed adapter → DB cache table → cross-process single-flight → rate-limited upstream call.
 
 | Provider | Endpoints (representative) | Rate Limit | Auth |
 |----------|---------------------------|------------|------|
@@ -81,6 +81,10 @@ All 27 adapters below follow the same pattern: typed adapter → DB cache table 
 | Bangumi | `/api/bangumi/...` | 10/s | `BANGUMI_USER_AGENT` |
 | Fanart | `/api/fanart/...` | 10/s | `FANART_API_KEY` |
 | Douban | `/api/douban/...` | 1/s | scraping (no key) |
+| JavBus | `/api/javbus/search?video_id=` | 5/s | `JAVBUS_BASE_URL` (optional `JAVBUS_COOKIE`) |
+| JavDB | `/api/javdb/search?video_id=` | 5/s | `JAVDB_BASE_URL` (optional `JAVDB_COOKIE`) |
+| ThePornDB | `/api/tpdb/search?video_id=` | 5/s | `TPDB_API_KEY` + `TPDB_BASE_URL` |
+| StashDB | `/api/stashdb/search?video_id=` | 5/s | `STASHDB_BASE_URL` (optional `STASHDB_API_KEY`) |
 | Spotify | `/api/spotify/...` | 30/s | `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET` |
 | MusicBrainz | `/api/musicbrainz/...` | 1/s | `MUSICBRAINZ_USER_AGENT` |
 | Deezer | `/api/deezer/...` | 30/s | none |

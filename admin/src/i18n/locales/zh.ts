@@ -165,6 +165,26 @@ const zh: Resources = {
       description:
         "Fanart.tv 海报与背景图等视觉素材源，用于媒体封面补全；requires configured API key。",
     },
+    javbus: {
+      name: "JavBus",
+      description:
+        "按视频编号从 JavBus 获取成人影片元数据；可选 Cookie 用于降低反爬拦截影响。",
+    },
+    javdb: {
+      name: "JavDB",
+      description:
+        "按视频编号从 JavDB 获取成人影片元数据；可选 Cookie 用于降低反爬拦截影响。",
+    },
+    tpdb: {
+      name: "ThePornDB",
+      description:
+        "按视频编号从 ThePornDB 获取成人场景元数据；需要配置 API Key。",
+    },
+    stashdb: {
+      name: "StashDB",
+      description:
+        "按视频编号从 StashDB GraphQL 获取成人场景元数据；支持可选 API Key。",
+    },
     douban: {
       name: "豆瓣",
       description: "豆瓣影视搜索与条目元数据源，适合中文内容检索与对照。",
