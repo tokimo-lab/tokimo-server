@@ -9,8 +9,8 @@ An adapter, cache, and CDN-fronting service for third-party APIs (TMDB, Baidu Ho
 - 🌊 **Rate Limiting**: Token-bucket rate limiter persisted to PostgreSQL
 - 💾 **Caching**: Database-backed caching with TTL
 - 📦 **Asset Storage**: Local filesystem · S3-compatible (AWS S3 / MinIO) · Aliyun OSS
-- 🎬 **31 Provider Adapters**: video metadata (TMDB, OMDb, TheTVDB, Bangumi, Fanart, Douban, JavBus, JavDB, ThePornDB, StashDB) · music (Spotify, MusicBrainz, Deezer, LRCLIB) · books (Qidian) · encyclopedia (Wikipedia) · geo/weather (Open-Meteo, Nominatim, Geocoding) · holidays (Timor + Nager) · subtitles (Assrt, OpenSubtitles, RegieLive, Gestdown) · releases (GitHub) · trending (Baidu Hot, Baidu Sports) · quotes (Hitokoto, ZenQuotes) · wallpaper (Bing) · currency (exchange rates)
-- 🔥 **Hot Search Aggregator**: Multi-source trending topics (Weibo, Bilibili, Baidu, GitHub Trending, Hacker News, V2EX)
+- 🎬 **32 Provider Adapters**: video metadata (TMDB, OMDb, TheTVDB, Bangumi, Fanart, Douban, JavBus, JavDB, ThePornDB, StashDB) · music (Spotify, MusicBrainz, Deezer, LRCLIB, **iTunes**) · books (Qidian) · encyclopedia (Wikipedia) · geo/weather (Open-Meteo, Nominatim, Geocoding) · holidays (Timor + Nager) · subtitles (Assrt, OpenSubtitles, RegieLive, Gestdown) · releases (GitHub) · trending (Baidu Hot, Baidu Sports) · quotes (Hitokoto, ZenQuotes) · wallpaper (Bing) · currency (exchange rates)
+- 🔥 **Hot Search Aggregator (19 sources)**: Weibo · Bilibili · Baidu · 今日头条 · 36氪 · GitHub Trending · 掘金 · V2EX · 少数派 · 知乎热榜 · 抖音热搜 · Hacker News · 豆瓣电影 · 澎湃新闻 · 虎扑步行街 · IT之家 · 百度贴吧 · Linux.do · 网易新闻
 
 ## Tech Stack
 
@@ -100,12 +100,37 @@ All 31 adapters below follow the same pattern: typed adapter → DB cache table 
 | RegieLive | `/api/regielive/search` | 10/s | none (hardcoded Bazarr UA + key) |
 | Gestdown | `/api/gestdown/{shows/search,subtitles}` | 10/s | none |
 | GitHub Releases | `/api/github/releases/:owner/:repo/{latest,list}` | 30/s | optional `GITHUB_TOKEN` |
-| Baidu Hot | `/api/hot/list?id=...` | per-source | none |
+| Baidu Hot | `/api/hot/list?id=...` (19 sources, see below) · `/api/hot/sources` | per-source | none |
 | Baidu Sports | `/api/sports/schedule?...` | 10/s | none |
 | Hitokoto | `/api/hitokoto/sentence` | 10/s | none |
 | ZenQuotes | `/api/zenquotes/random` | 10/s | none |
 | Bing Wallpaper | `/api/bing/wallpaper` | 10/s | none |
 | Currency | `/api/currency/rates` | 10/s | none |
+| iTunes | `/api/itunes/album-cover?artist=&album=` | 5/s | none |
+
+### Hot Search Sources (`/api/hot/list?id=<source>`)
+
+| id | Name | Upstream |
+|---|---|---|
+| `weibo` | 微博热搜 | s.weibo.com |
+| `bilibili` | B站热门 | api.bilibili.com |
+| `baidu` | 百度热搜 | top.baidu.com |
+| `toutiao` | 今日头条 | toutiao.com/hot-event/hot-board |
+| `36kr` | 36氪 | gateway.36kr.com |
+| `github` | GitHub Trending | github.com/trending |
+| `juejin` | 掘金 | api.juejin.cn |
+| `v2ex` | V2EX | v2ex.com/api/topics/hot.json |
+| `sspai` | 少数派 | sspai.com |
+| `zhihu` | 知乎热榜 | zhihu.com |
+| `douyin` | 抖音热搜 | douyin.com |
+| `hackernews` | Hacker News | hacker-news.firebaseio.com |
+| `douban-movie` | 豆瓣电影 | movie.douban.com |
+| `thepaper` | 澎湃新闻 | cache.thepaper.cn |
+| `hupu` | 虎扑步行街 | bbs.hupu.com |
+| `ithome` | IT之家 | m.ithome.com |
+| `tieba` | 百度贴吧 | tieba.baidu.com/hottopic |
+| `linuxdo` | Linux.do | linux.do/top.json (⚠ Cloudflare 可能 403 非中国出口) |
+| `netease-news` | 网易新闻 | m.163.com/fe/api/hot/news/flow |
 
 ## Environment Variables
 
