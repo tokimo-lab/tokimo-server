@@ -193,8 +193,42 @@ async fn delete_key(
     Ok(Json(serde_json::json!({ "success": true })))
 }
 
-async fn list_provider_configs(State(_state): State<AppState>) -> AppResult<Json<serde_json::Value>> {
-    Ok(Json(serde_json::json!({ "configs": [] })))
+/// Backward-compatible alias for `/api/admin/providers`.
+///
+/// Older clients and stale bundles may call this endpoint expecting
+/// `{"configs": [...]}`.  We now populate it from the same dynamic
+/// registry + runtime-config source as `list_providers` so that the
+/// Provider Configs page is never empty.
+async fn list_provider_configs(State(state): State<AppState>) -> AppResult<Json<serde_json::Value>> {
+    let cfg = state.provider_configs.read().await;
+    let mut configs = Vec::with_capacity(crate::providers_registry::REGISTRY.len());
+    for meta in crate::providers_registry::REGISTRY.iter() {
+        let runtime = cfg.get(meta.key);
+        let env_status: std::collections::HashMap<String, bool> = meta
+            .env_keys
+            .iter()
+            .map(|k| {
+                let is_set = std::env::var(k).map(|v| !v.is_empty()).unwrap_or(false);
+                ((*k).to_string(), is_set)
+            })
+            .collect();
+        configs.push(serde_json::json!({
+            "key":           meta.key,
+            "category":      meta.category,
+            "prefix":        meta.prefix,
+            "sample":        meta.sample,
+            "rate_limit":    meta.rate_limit,
+            "auth_required": meta.auth_required,
+            "env_keys":      meta.env_keys,
+            "env_status":    env_status,
+            "ttl_seconds":   runtime.map(|r| r.ttl_seconds).unwrap_or(meta.default_ttl_seconds),
+            "has_ttl":       meta.has_ttl,
+            "enabled":       runtime.map(|r| r.enabled).unwrap_or(true),
+            "i18n_name_key": meta.i18n_name_key,
+            "i18n_desc_key": meta.i18n_desc_key,
+        }));
+    }
+    Ok(Json(serde_json::json!({ "configs": configs })))
 }
 
 #[derive(Serialize)]

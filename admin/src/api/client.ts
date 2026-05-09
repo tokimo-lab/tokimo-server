@@ -67,16 +67,17 @@ export async function deleteServiceKey(id: string) {
   return res.json();
 }
 
-export async function listProviderConfigs() {
-  const res = await fetch(`${API_BASE}/admin/provider-configs`, {
-    headers: getHeaders(),
-  });
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch provider configs");
-  }
-
-  return res.json();
+/**
+ * @deprecated Use {@link listAdminProviders} instead.
+ * This alias calls the canonical /api/admin/providers endpoint and returns
+ * the result wrapped in `{ configs: AdminProvider[] }` to preserve the
+ * shape that old callers expected from /api/admin/provider-configs.
+ */
+export async function listProviderConfigs(): Promise<{
+  configs: AdminProvider[];
+}> {
+  const providers = await listAdminProviders();
+  return { configs: providers };
 }
 
 export interface AdminProvider {
