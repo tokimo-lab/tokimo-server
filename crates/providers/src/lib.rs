@@ -14,6 +14,7 @@ pub mod gestdown;
 pub mod github_releases;
 pub mod hitokoto;
 pub mod holiday;
+pub mod itunes;
 pub mod javbus;
 pub mod javdb;
 pub mod lrclib;

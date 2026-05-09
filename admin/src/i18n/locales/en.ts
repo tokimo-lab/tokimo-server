@@ -209,6 +209,11 @@ const en = {
       description:
         "Lyrics lookup by artist and track from LrcLib for music subtitle scenarios.",
     },
+    itunes: {
+      name: "iTunes Album Cover",
+      description:
+        "Apple iTunes Search album-cover lookup, 3000×3000 high-res fallback source",
+    },
     qidian: {
       name: "Qidian",
       description:

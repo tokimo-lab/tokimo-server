@@ -13,6 +13,7 @@ pub mod github;
 pub mod hitokoto;
 pub mod holiday;
 pub mod hot;
+pub mod itunes;
 pub mod javbus;
 pub mod javdb;
 pub mod lrclib;
@@ -74,6 +75,7 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/assrt", provider_routes(assrt::routes(), &state))
         .nest("/github", provider_routes(github::routes(), &state))
         .nest("/hitokoto", provider_routes(hitokoto::routes(), &state))
+        .nest("/itunes", provider_routes(itunes::routes(), &state))
         .nest("/zenquotes", provider_routes(zenquotes::routes(), &state))
         .nest("/bing", provider_routes(bing_wallpaper::routes(), &state))
         .nest("/opensubtitles", provider_routes(opensubtitles::routes(), &state))

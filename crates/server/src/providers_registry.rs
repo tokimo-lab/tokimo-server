@@ -239,6 +239,19 @@ pub const REGISTRY: &[ProviderMeta] = &[
         i18n_name_key: "providers.lrclib.name",
         i18n_desc_key: "providers.lrclib.description",
     },
+    ProviderMeta {
+        key: "itunes",
+        category: "music",
+        prefix: "/api/itunes/album-cover",
+        sample: "/api/itunes/album-cover?artist=Beatles&album=Abbey%20Road",
+        rate_limit: "5/s",
+        auth_required: AuthRequired::No,
+        env_keys: &[],
+        default_ttl_seconds: 7 * ONE_DAY,
+        has_ttl: true,
+        i18n_name_key: "providers.itunes.name",
+        i18n_desc_key: "providers.itunes.description",
+    },
     // ---- 书籍 / 百科 ----
     ProviderMeta {
         key: "qidian",

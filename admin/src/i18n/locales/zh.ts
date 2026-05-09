@@ -207,6 +207,10 @@ const zh: Resources = {
       name: "LrcLib",
       description: "按歌手与曲名检索歌词，用于音乐字幕与歌词展示场景。",
     },
+    itunes: {
+      name: "iTunes 专辑封面",
+      description: "Apple iTunes Search 专辑封面查询，3000×3000 高分辨率回退源",
+    },
     qidian: {
       name: "起点",
       description: "起点小说搜索元数据源，用于书籍发现与书单扩展。",
