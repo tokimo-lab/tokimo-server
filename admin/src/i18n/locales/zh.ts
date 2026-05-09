@@ -568,31 +568,44 @@ const zh: Resources = {
     },
     "provider-configs-table": {
       title: "Providers 表格",
-      summary: "上游 Provider 清单：路由前缀、限流、鉴权、env 依赖。",
+      summary:
+        "来自 admin API 的实时 Provider 行：元信息、env 就绪状态与探测操作。",
       fields: {
-        "column-provider": {
-          label: "Provider",
-          desc: "Provider 的展示名（如 `TMDB` / `OMDb` / `Bangumi`）。同时是路由命名空间的人类可读标签——表格里没有单独的 prefix 列，prefix 见下一列示例 URL 的开头部分（如 `/api/tmdb/...`）。",
+        "column-name": {
+          label: "名称",
+          desc: "Provider 展示名：优先用 `i18n_name_key` 翻译，缺失时回退到 `key`。数据由 `/api/admin/providers` 动态返回，不是前端静态常量。",
         },
-        "column-sample-url": {
-          label: "示例 URL",
-          desc: "一条经过精心选择的真实可调用的 sample 路径（如 `/api/tmdb/movie/550` 对应《搏击俱乐部》）。**点这一列文字不会触发请求**——只有右侧「发送」按钮会。鼠标 hover 显示完整 URL（路径较长时会被 ellipsis 截断）。\n\n该路径在「发送」时会被 `expandSample()` 处理（替换占位符等），实际请求 URL 即为此值。",
+        "column-category": {
+          label: "分类",
+          desc: "Provider 业务分类（如 movie / music / anime），用于快速识别能力域。值来自后端 `category`，有翻译时走 `providers.categories.*`。",
+        },
+        "column-prefix": {
+          label: "前缀",
+          desc: "该 Provider 的代理路由前缀（例如 `/api/tmdb`）。单元格使用 code + tooltip 展示，避免长前缀把表格撑开。",
         },
         "column-rate-limit": {
           label: "限流",
-          desc: "代理对该 Provider 设置的**单实例 token bucket** 上限（如 `10/s` / `1/s` / `30/s`）。这是**代理出口侧**的限流——保护上游不被打爆，与 Service Key 自身的限流是两套独立机制。\n\n超出会返回 `429`，并附带 `Retry-After` 头。值在 Rust 端 `crates/providers/<name>.rs` 中以代码常量定义，admin 只是文案展示。",
+          desc: "该 Provider 当前的出口限流策略（`rate_limit`，如 `10/s`）。值来自后端 Provider 元数据，可用于解释探测请求为何返回 `429`。",
         },
         "column-auth": {
           label: "鉴权",
-          desc: "**调用本代理时**是否需要 Bearer service key（不是上游 API 的鉴权）。三种取值：\n\n- `必填` (yes，红 tag) — 必须带 `Authorization: Bearer tks_...`，否则 401\n- `可选` (optional，黄 tag) — 不带也能调，但可能限流更严或返回精简数据\n- `无需` (no，绿 tag) — 完全开放，匿名可调（如部分公开数据 Provider）\n\n上游 Provider 自身是否需要 API key 由「环境变量」列体现，与本列**无关**。",
+          desc: "调用代理是否需要 Bearer service key（`yes | optional | no`），通过不同颜色 Tag 展示严格鉴权 / 可选鉴权 / 开放访问。",
         },
         "column-env-vars": {
           label: "环境变量",
-          desc: "上游 Provider 鉴权所需的进程级环境变量名列表（如 `TMDB_API_KEY`、`SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET`）。**空（—）** 表示该 Provider 不需要任何上游 key（如 Douban 走匿名公开页）。\n\n服务启动时若必填 env 缺失：调用该 Provider 会返回 `502 Bad Gateway` 并附带错误 `provider not configured: missing env XXX`。**admin 此处不显示运行时是否已配置**——只列出 schema。",
+          desc: "上游鉴权依赖的 env key 列表（`env_keys`）。每个 Tag 颜色反映运行时 `env_status`：绿色=已配置，灰色=缺失。显示 `—` 代表该 Provider 无 env 依赖。",
+        },
+        "column-ttl": {
+          label: "TTL",
+          desc: "缓存 TTL（秒）。当 `has_ttl=true` 时可行内编辑并通过 `PATCH /api/admin/providers/{key}` 保存；`has_ttl=false` 时显示「永久」Tag，并给出永久缓存提示。",
+        },
+        "column-sample-url": {
+          label: "示例 URL",
+          desc: "发送探测时使用的 URL 模板。实际请求会先经过 `expandSample()` 展开占位符（如 `{TODAY}`）；被截断时可通过 tooltip 查看完整值。",
         },
         "column-action-send": {
           label: "操作 · 发送",
-          desc: "点击发送按钮：用顶部输入框中的 service key（若为空则先弹 prompt）携带 `Authorization: Bearer ...` 直接 `fetch(sample)`。请求**由浏览器发出**，不经 admin 后端转发。\n\n用途：在不动写脚本的前提下快速探活某个 Provider，验证：上游可达 ✅ / service key 有效 ✅ / 鉴权 scope 够用 ✅ / 响应结构符合预期 ✅。响应在 `ProviderResponseModal` 中展示。",
+          desc: "触发该行示例 URL 的浏览器侧探测请求。使用顶部 service key（为空时先弹输入框），并在 `ProviderResponseModal` 中展示状态码、耗时和响应体，便于快速定位问题。",
         },
       },
     },

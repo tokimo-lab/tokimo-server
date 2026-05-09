@@ -586,31 +586,43 @@ const en = {
     "provider-configs-table": {
       title: "Providers Table",
       summary:
-        "Upstream provider catalogue: prefix, rate limit, auth, env deps.",
+        "Live provider rows from admin API: metadata, env readiness, and test actions.",
       fields: {
-        "column-provider": {
-          label: "Provider",
-          desc: "Display name (e.g. `TMDB`, `OMDb`, `Bangumi`). Doubles as a human-readable label for the route namespace — there is no separate Prefix column; the prefix is visible at the start of the Sample URL (e.g. `/api/tmdb/...`).",
+        "column-name": {
+          label: "Name",
+          desc: "Provider display name resolved via i18n key (`i18n_name_key`) with fallback to provider `key`. Rows are loaded dynamically from `/api/admin/providers`, not from a static frontend constant.",
         },
-        "column-sample-url": {
-          label: "Sample URL",
-          desc: "A hand-picked, callable sample path (e.g. `/api/tmdb/movie/550` for *Fight Club*). **Clicking the cell does not fire the request** — only the right-side Send button does. Hover shows the full URL when truncated.\n\nThe path is processed through `expandSample()` (placeholder substitution etc.) when Send fires; the resulting URL is what actually hits the proxy.",
+        "column-category": {
+          label: "Category",
+          desc: "Logical provider group (e.g. movie, music, anime). Used to quickly scan capability domains; rendered from backend `category` and translated with `providers.categories.*` when available.",
+        },
+        "column-prefix": {
+          label: "Prefix",
+          desc: "Proxy route prefix for this provider (for example `/api/tmdb`). The cell uses tooltip + code style so long prefixes remain readable without widening the table.",
         },
         "column-rate-limit": {
           label: "Rate Limit",
-          desc: "The proxy's outbound **per-instance token-bucket** limit for this provider (e.g. `10/s`, `1/s`, `30/s`). This is the **proxy-side egress limit** that protects the upstream from abuse — independent of any per-service-key rate limit.\n\nExceeding it returns `429` with a `Retry-After` header. Defined as a Rust constant in `crates/providers/<name>.rs`; the admin only renders the value.",
+          desc: "Current outbound throttle policy shown per provider (`rate_limit`, e.g. `10/s`). This value comes from backend provider metadata and helps explain `429` behavior during probe requests.",
         },
         "column-auth": {
           label: "Auth",
-          desc: "Whether **calling this proxy** requires a Bearer service key (NOT whether the upstream needs an API key — that's the next column). Three values:\n\n- `required` (red) — must send `Authorization: Bearer tks_...` or get 401\n- `optional` (yellow) — anonymous works but may be rate-limited harder or return reduced data\n- `none` (green) — fully open, anonymous allowed (e.g. some public-data providers)\n\nWhether the upstream itself needs an API key is reflected by the Env Vars column and is unrelated to this one.",
+          desc: "Whether proxy calls require a Bearer service key (`yes | optional | no`). Rendered as colored tags to show strict/optional/open access at a glance.",
         },
         "column-env-vars": {
           label: "Env Vars",
-          desc: "The list of process-level environment variables required for upstream authentication (e.g. `TMDB_API_KEY`, or `SPOTIFY_CLIENT_ID` + `SPOTIFY_CLIENT_SECRET`). **Empty (—)** means the provider needs no upstream credentials (e.g. Douban anonymous public pages).\n\nIf a required env var is missing at startup, calls to that provider return `502 Bad Gateway` with `provider not configured: missing env XXX`. **The admin deliberately does not show whether the env var is populated** — schema only.",
+          desc: "Required upstream env keys (`env_keys`) rendered as tags. Each tag color reflects runtime `env_status`: green = configured, gray = missing. `—` means no env dependency for that provider.",
+        },
+        "column-ttl": {
+          label: "TTL",
+          desc: "Provider cache TTL in seconds. If `has_ttl` is true, value is editable inline and saved via `PATCH /api/admin/providers/{key}`; if false, the table shows a Permanent tag with tooltip hint for non-expiring cache behavior.",
+        },
+        "column-sample-url": {
+          label: "Sample URL",
+          desc: "Probe URL template used by the Send action. The final request URL is produced by `expandSample()` (placeholder expansion such as `{TODAY}`), and full value is available in tooltip when truncated.",
         },
         "column-action-send": {
           label: "Action · Send",
-          desc: "Click Send: takes the service key from the top input (prompts if empty) and issues `fetch(sample, { Authorization: 'Bearer ...' })` directly from the browser, **not via the admin backend**.\n\nUse case: probe a provider without writing a script. Verifies upstream reachable ✅ / service key valid ✅ / scope sufficient ✅ / response shape as expected ✅. Result lands in `ProviderResponseModal`.",
+          desc: "Sends a browser-side probe request for the row's sample URL. Uses the top service key input (prompts if empty) and opens `ProviderResponseModal` with status / latency / body for quick diagnostics.",
         },
       },
     },
