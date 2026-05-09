@@ -15,8 +15,6 @@ use crate::{
     AppError, AppResult, AppState,
 };
 
-const CACHE_TTL_SECONDS: i64 = 6 * 60 * 60; // 6h
-
 pub fn routes() -> Router<AppState> {
     Router::new().route("/search", get(get_search))
 }
@@ -30,6 +28,7 @@ pub struct SearchQuery {
 }
 
 async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>) -> AppResult<Response> {
+    let ttl_seconds = state.provider_ttl("opensubtitles").await;
     let api_key = state.config.opensubtitles_api_key.clone().ok_or_else(|| {
         AppError::Core(CoreError::Provider(
             "opensubtitles: OPENSUBTITLES_API_KEY is not configured".into(),
@@ -55,14 +54,14 @@ async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        if is_fresh(row.fetched_at) {
+        if is_fresh(row.fetched_at, ttl_seconds) {
             return Ok(cache_hit(Json(row.raw_json)));
         }
     }
 
     state.rate_limiter.acquire("opensubtitles").await?;
 
-    let sf_bucket = chrono::Utc::now().timestamp() / CACHE_TTL_SECONDS;
+    let sf_bucket = chrono::Utc::now().timestamp() / ttl_seconds.max(1);
     let cache_key_sf = format!("{key}:{sf_bucket}");
     let http = state.http.clone();
     let db = state.db.clone();
@@ -81,7 +80,7 @@ async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>)
                 .await
                 .map_err(|e| CoreError::Database(e.to_string()))?
             {
-                if is_fresh(row.fetched_at) {
+                if is_fresh(row.fetched_at, ttl_seconds) {
                     return Ok(row.raw_json);
                 }
             }
@@ -121,6 +120,6 @@ async fn get_search(State(state): State<AppState>, Query(q): Query<SearchQuery>)
     Ok(Json(raw).into_response())
 }
 
-fn is_fresh(fetched_at: chrono::DateTime<chrono::FixedOffset>) -> bool {
-    chrono::Utc::now().signed_duration_since(fetched_at) < chrono::Duration::seconds(CACHE_TTL_SECONDS)
+fn is_fresh(fetched_at: chrono::DateTime<chrono::FixedOffset>, ttl_seconds: i64) -> bool {
+    chrono::Utc::now().signed_duration_since(fetched_at) < chrono::Duration::seconds(ttl_seconds)
 }

@@ -14,7 +14,6 @@ use crate::{
     AppError, AppResult, AppState,
 };
 
-const CACHE_TTL_SECONDS: i64 = 30 * 60; // 30 min
 const CACHE_KEY: &str = "zenquotes:random";
 
 pub fn routes() -> Router<AppState> {
@@ -22,19 +21,20 @@ pub fn routes() -> Router<AppState> {
 }
 
 async fn get_random(State(state): State<AppState>) -> AppResult<Response> {
+    let ttl_seconds = state.provider_ttl("zenquotes").await;
     if let Some(row) = ZenquotesCache::find_by_id(CACHE_KEY.to_string())
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        if is_fresh(row.fetched_at) {
+        if is_fresh(row.fetched_at, ttl_seconds) {
             return Ok(cache_hit(Json(row.raw_json)));
         }
     }
 
     state.rate_limiter.acquire("zenquotes").await?;
 
-    let sf_bucket = chrono::Utc::now().timestamp() / CACHE_TTL_SECONDS;
+    let sf_bucket = chrono::Utc::now().timestamp() / ttl_seconds.max(1);
     let cache_key_sf = format!("{CACHE_KEY}:{sf_bucket}");
     let http = state.http.clone();
     let db = state.db.clone();
@@ -47,7 +47,7 @@ async fn get_random(State(state): State<AppState>) -> AppResult<Response> {
                 .await
                 .map_err(|e| CoreError::Database(e.to_string()))?
             {
-                if is_fresh(row.fetched_at) {
+                if is_fresh(row.fetched_at, ttl_seconds) {
                     return Ok(row.raw_json);
                 }
             }
@@ -76,6 +76,6 @@ async fn get_random(State(state): State<AppState>) -> AppResult<Response> {
     Ok(Json(raw).into_response())
 }
 
-fn is_fresh(fetched_at: chrono::DateTime<chrono::FixedOffset>) -> bool {
-    chrono::Utc::now().signed_duration_since(fetched_at) < chrono::Duration::seconds(CACHE_TTL_SECONDS)
+fn is_fresh(fetched_at: chrono::DateTime<chrono::FixedOffset>, ttl_seconds: i64) -> bool {
+    chrono::Utc::now().signed_duration_since(fetched_at) < chrono::Duration::seconds(ttl_seconds)
 }

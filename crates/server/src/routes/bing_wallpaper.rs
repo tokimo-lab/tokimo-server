@@ -15,8 +15,6 @@ use crate::{
     AppError, AppResult, AppState,
 };
 
-const CACHE_TTL_SECONDS: i64 = 24 * 60 * 60; // 24h
-
 pub fn routes() -> Router<AppState> {
     Router::new().route("/wallpaper", get(get_wallpaper))
 }
@@ -29,6 +27,7 @@ pub struct WallpaperQuery {
 }
 
 async fn get_wallpaper(State(state): State<AppState>, Query(q): Query<WallpaperQuery>) -> AppResult<Response> {
+    let ttl_seconds = state.provider_ttl("bing").await;
     let mkt = q.mkt.unwrap_or_else(|| "zh-CN".to_string());
     if !bing_wallpaper::is_valid_market(&mkt) {
         return Err(AppError::BadRequest(format!(
@@ -52,14 +51,14 @@ async fn get_wallpaper(State(state): State<AppState>, Query(q): Query<WallpaperQ
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        if is_fresh(row.fetched_at) {
+        if is_fresh(row.fetched_at, ttl_seconds) {
             return Ok(cache_hit(Json(row.raw_json)));
         }
     }
 
     state.rate_limiter.acquire("bing_wallpaper").await?;
 
-    let sf_bucket = chrono::Utc::now().timestamp() / CACHE_TTL_SECONDS;
+    let sf_bucket = chrono::Utc::now().timestamp() / ttl_seconds.max(1);
     let cache_key_sf = format!("{key}:{sf_bucket}");
     let http = state.http.clone();
     let db = state.db.clone();
@@ -74,7 +73,7 @@ async fn get_wallpaper(State(state): State<AppState>, Query(q): Query<WallpaperQ
                 .await
                 .map_err(|e| CoreError::Database(e.to_string()))?
             {
-                if is_fresh(row.fetched_at) {
+                if is_fresh(row.fetched_at, ttl_seconds) {
                     return Ok(row.raw_json);
                 }
             }
@@ -106,6 +105,6 @@ async fn get_wallpaper(State(state): State<AppState>, Query(q): Query<WallpaperQ
     Ok(Json(raw).into_response())
 }
 
-fn is_fresh(fetched_at: chrono::DateTime<chrono::FixedOffset>) -> bool {
-    chrono::Utc::now().signed_duration_since(fetched_at) < chrono::Duration::seconds(CACHE_TTL_SECONDS)
+fn is_fresh(fetched_at: chrono::DateTime<chrono::FixedOffset>, ttl_seconds: i64) -> bool {
+    chrono::Utc::now().signed_duration_since(fetched_at) < chrono::Duration::seconds(ttl_seconds)
 }

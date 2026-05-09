@@ -15,8 +15,6 @@ use crate::{
     AppError, AppResult, AppState,
 };
 
-const CACHE_TTL_SECONDS: i64 = 4 * 60 * 60;
-
 pub fn routes() -> Router<AppState> {
     Router::new().route("/rates", get(get_rates))
 }
@@ -39,18 +37,19 @@ async fn get_rates(State(state): State<AppState>, Query(q): Query<RatesQuery>) -
     let targets = normalize_targets(&q.targets, &base)?;
     let targets_csv = targets.join(",");
     let days_i32 = i32::from(days);
+    let ttl_seconds = state.provider_ttl("currency").await;
 
     let existing = CurrencyRates::find_by_id((base.clone(), targets_csv.clone(), days_i32))
         .one(&state.db)
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
-    if let Some(row) = existing.as_ref().filter(|row| is_fresh(row.fetched_at)) {
+    if let Some(row) = existing.as_ref().filter(|row| is_fresh(row.fetched_at, ttl_seconds)) {
         return Ok(cache_hit(Json(row.raw_json.clone())));
     }
 
     state.rate_limiter.acquire("currency").await?;
 
-    let sf_bucket = chrono::Utc::now().timestamp() / CACHE_TTL_SECONDS;
+    let sf_bucket = chrono::Utc::now().timestamp() / ttl_seconds.max(1);
     let cache_key_sf = format!("currency:{base}:{targets_csv}:{days}:{sf_bucket}");
     let http = state.http.clone();
     let db = state.db.clone();
@@ -67,7 +66,7 @@ async fn get_rates(State(state): State<AppState>, Query(q): Query<RatesQuery>) -
                 .await
                 .map_err(|e| CoreError::Database(e.to_string()))?
             {
-                if is_fresh(row.fetched_at) {
+                if is_fresh(row.fetched_at, ttl_seconds) {
                     return Ok(row.raw_json);
                 }
             }
@@ -160,8 +159,8 @@ fn normalize_code(value: &str) -> Option<String> {
     }
 }
 
-fn is_fresh(fetched_at: chrono::DateTime<chrono::FixedOffset>) -> bool {
-    chrono::Utc::now().signed_duration_since(fetched_at) < chrono::Duration::seconds(CACHE_TTL_SECONDS)
+fn is_fresh(fetched_at: chrono::DateTime<chrono::FixedOffset>, ttl_seconds: i64) -> bool {
+    chrono::Utc::now().signed_duration_since(fetched_at) < chrono::Duration::seconds(ttl_seconds)
 }
 
 fn should_fallback(err: &CoreError) -> bool {

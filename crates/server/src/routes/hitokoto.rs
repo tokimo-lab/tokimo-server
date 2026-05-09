@@ -15,8 +15,6 @@ use crate::{
     AppError, AppResult, AppState,
 };
 
-const CACHE_TTL_SECONDS: i64 = 60 * 60; // 1h
-
 pub fn routes() -> Router<AppState> {
     Router::new().route("/sentence", get(get_sentence))
 }
@@ -27,6 +25,7 @@ pub struct SentenceQuery {
 }
 
 async fn get_sentence(State(state): State<AppState>, Query(q): Query<SentenceQuery>) -> AppResult<Response> {
+    let ttl_seconds = state.provider_ttl("hitokoto").await;
     let c = match q.c.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         Some(cat) => {
             if !hitokoto::is_valid_category(cat) {
@@ -44,14 +43,14 @@ async fn get_sentence(State(state): State<AppState>, Query(q): Query<SentenceQue
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?
     {
-        if is_fresh(row.fetched_at) {
+        if is_fresh(row.fetched_at, ttl_seconds) {
             return Ok(cache_hit(Json(row.raw_json)));
         }
     }
 
     state.rate_limiter.acquire("hitokoto").await?;
 
-    let sf_bucket = chrono::Utc::now().timestamp() / CACHE_TTL_SECONDS;
+    let sf_bucket = chrono::Utc::now().timestamp() / ttl_seconds.max(1);
     let cache_key_sf = format!("{key}:{sf_bucket}");
     let http = state.http.clone();
     let db = state.db.clone();
@@ -66,7 +65,7 @@ async fn get_sentence(State(state): State<AppState>, Query(q): Query<SentenceQue
                 .await
                 .map_err(|e| CoreError::Database(e.to_string()))?
             {
-                if is_fresh(row.fetched_at) {
+                if is_fresh(row.fetched_at, ttl_seconds) {
                     return Ok(row.raw_json);
                 }
             }
@@ -95,6 +94,6 @@ async fn get_sentence(State(state): State<AppState>, Query(q): Query<SentenceQue
     Ok(Json(raw).into_response())
 }
 
-fn is_fresh(fetched_at: chrono::DateTime<chrono::FixedOffset>) -> bool {
-    chrono::Utc::now().signed_duration_since(fetched_at) < chrono::Duration::seconds(CACHE_TTL_SECONDS)
+fn is_fresh(fetched_at: chrono::DateTime<chrono::FixedOffset>, ttl_seconds: i64) -> bool {
+    chrono::Utc::now().signed_duration_since(fetched_at) < chrono::Duration::seconds(ttl_seconds)
 }
