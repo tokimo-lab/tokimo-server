@@ -267,6 +267,14 @@ function ProviderConfigsPage() {
       key: "ttl",
       width: 220,
       render: (_: unknown, row: AdminProvider) => {
+        if (!row.has_ttl) {
+          return (
+            <Tooltip title={t("providers.ttl.permanentHint")}>
+              <Tag color="default">{t("providers.ttl.permanent")}</Tag>
+            </Tooltip>
+          );
+        }
+
         const isEditing = editing?.key === row.key;
         if (isEditing) {
           const changed = editing.value !== row.ttl_seconds;
@@ -322,9 +330,10 @@ function ProviderConfigsPage() {
             </Tooltip>
             <Button
               size="small"
-              onClick={() =>
-                setEditing({ key: row.key, value: row.ttl_seconds })
-              }
+              onClick={() => {
+                if (!row.has_ttl) return;
+                setEditing({ key: row.key, value: row.ttl_seconds });
+              }}
             >
               {t("providers.ttl.edit")}
             </Button>

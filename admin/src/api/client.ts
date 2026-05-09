@@ -89,6 +89,7 @@ export interface AdminProvider {
   env_keys: string[];
   env_status: Record<string, boolean>;
   ttl_seconds: number;
+  has_ttl: boolean;
   enabled: boolean;
   i18n_name_key: string;
   i18n_desc_key: string;

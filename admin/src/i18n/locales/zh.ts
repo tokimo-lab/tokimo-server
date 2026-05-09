@@ -98,6 +98,8 @@ const zh: Resources = {
       save: "保存",
       cancel: "取消",
       seconds: "秒",
+      permanent: "永久",
+      permanentHint: "该 Provider 不支持配置 TTL。",
       updated: "TTL 已更新",
       updateFailed: "更新 TTL 失败",
       zeroHint: "0 = 不缓存",

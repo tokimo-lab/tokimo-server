@@ -97,6 +97,8 @@ const en = {
       save: "Save",
       cancel: "Cancel",
       seconds: "seconds",
+      permanent: "Permanent",
+      permanentHint: "This provider does not expose a configurable TTL.",
       updated: "TTL updated",
       updateFailed: "Failed to update TTL",
       zeroHint: "0 = no cache",
