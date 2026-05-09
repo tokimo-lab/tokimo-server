@@ -25,6 +25,8 @@ async fn get_schedule(
     State(state): State<AppState>,
     Query(query): Query<ScheduleQuery>,
 ) -> AppResult<Json<SportSchedule>> {
+    let ttl_seconds = state.provider_ttl("sports").await;
+    let ttl_duration = Duration::from_secs(ttl_seconds.max(1) as u64);
     let cache_key = format!("sports:{}:{}", query.match_type, query.date);
 
     // Check cache (60s TTL)
@@ -62,12 +64,7 @@ async fn get_schedule(
 
             if let Ok(serialized) = serde_json::to_vec(&schedule) {
                 let _ = cache
-                    .set(
-                        "sports",
-                        &cache_key_for_closure,
-                        serialized.into(),
-                        Duration::from_secs(60),
-                    )
+                    .set("sports", &cache_key_for_closure, serialized.into(), ttl_duration)
                     .await;
             }
 
@@ -83,6 +80,8 @@ pub async fn prewarm_task(state: AppState) {
 
     loop {
         ticker.tick().await;
+        let ttl_seconds = state.provider_ttl("sports").await;
+        let ttl_duration = Duration::from_secs(ttl_seconds.max(1) as u64);
 
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
         let tomorrow = (chrono::Local::now() + chrono::Duration::days(1))
@@ -103,7 +102,7 @@ pub async fn prewarm_task(state: AppState) {
                             "sports",
                             &cache_key,
                             serde_json::to_vec(&schedule).unwrap_or_default().into(),
-                            Duration::from_secs(60),
+                            ttl_duration,
                         )
                         .await;
                     tracing::debug!("Prewarmed sports schedule for {}", date);

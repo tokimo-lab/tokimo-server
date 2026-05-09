@@ -45,6 +45,8 @@ async fn get_hot_list(
     State(state): State<AppState>,
     Query(query): Query<HotListQuery>,
 ) -> AppResult<Json<Vec<HotItem>>> {
+    let ttl_seconds = state.provider_ttl("hot").await;
+    let ttl_duration = Duration::from_secs(ttl_seconds.max(1) as u64);
     let sources = create_registry();
     let source = sources
         .iter()
@@ -90,12 +92,7 @@ async fn get_hot_list(
             // losers observe it on their re-check above.
             if let Ok(serialized) = serde_json::to_vec(&items) {
                 let _ = cache
-                    .set(
-                        "hot",
-                        &cache_key_for_closure,
-                        serialized.into(),
-                        Duration::from_secs(120),
-                    )
+                    .set("hot", &cache_key_for_closure, serialized.into(), ttl_duration)
                     .await;
             }
 
