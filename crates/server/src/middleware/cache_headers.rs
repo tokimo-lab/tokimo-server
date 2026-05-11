@@ -9,12 +9,13 @@ use xxhash_rust::xxh3::xxh3_64;
 
 const DEFAULT_CACHE_TTL: u64 = 300;
 
-/// Middleware that adds cache control headers and ETag to successful GET/HEAD responses.
+/// Middleware that adds cache control headers and ETag to GET/HEAD responses.
 ///
-/// - Applies only to 2xx responses without existing Cache-Control
-/// - Adds Cache-Control: public, max-age=<N>, stale-while-revalidate=<N/2>
+/// - Applies only to responses without existing Cache-Control
+/// - Adds Cache-Control: public, max-age=<N>, stale-while-revalidate=<N/2> for 2xx
+/// - Adds short negative Cache-Control values for cacheable non-2xx responses
 /// - TTL comes from X-Cache-TTL header (if present) or DEFAULT_CACHE_TTL
-/// - Computes ETag from response body using xxhash
+/// - Computes ETag from successful response body using xxhash
 /// - Handles If-None-Match to return 304 Not Modified when appropriate
 /// - Removes X-Cache-TTL from final response (internal header)
 /// - Skips internal/admin routes: /admin/*, /health, /_internal/*
@@ -38,16 +39,20 @@ pub async fn cache_headers(req: Request, next: Next) -> Result<Response, StatusC
         return Ok(next.run(req).await);
     }
 
-    let response = next.run(req).await;
-
-    // Only process successful 2xx responses
-    let status = response.status();
-    if !status.is_success() {
-        return Ok(response);
-    }
+    let mut response = next.run(req).await;
 
     // Skip if Cache-Control already exists
     if response.headers().contains_key(header::CACHE_CONTROL) {
+        return Ok(response);
+    }
+
+    let status = response.status();
+    if !status.is_success() {
+        if let Some(cache_control) = negative_cache_control(status) {
+            response
+                .headers_mut()
+                .insert(header::CACHE_CONTROL, HeaderValue::from_static(cache_control));
+        }
         return Ok(response);
     }
 
@@ -147,6 +152,17 @@ fn should_skip_path(path: &str) -> bool {
         || normalized.starts_with("/_internal/")
 }
 
+fn negative_cache_control(status: StatusCode) -> Option<&'static str> {
+    match status {
+        StatusCode::NOT_FOUND => Some("public, max-age=60"),
+        StatusCode::TOO_MANY_REQUESTS => Some("public, max-age=30"),
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => Some("no-store"),
+        status if status.is_server_error() => Some("public, max-age=15"),
+        status if status.is_client_error() => Some("public, max-age=30"),
+        _ => None,
+    }
+}
+
 /// Check if the If-None-Match value matches the ETag.
 ///
 /// Supports:
@@ -232,5 +248,29 @@ mod tests {
         assert!(!should_skip_path("/api/tmdb/search"));
         assert!(!should_skip_path("/omdb/movie/tt1234567"));
         assert!(!should_skip_path("/api/spotify/track/123"));
+    }
+
+    #[test]
+    fn test_negative_cache_control_mapping() {
+        assert_eq!(
+            negative_cache_control(StatusCode::NOT_FOUND),
+            Some("public, max-age=60")
+        );
+        assert_eq!(
+            negative_cache_control(StatusCode::TOO_MANY_REQUESTS),
+            Some("public, max-age=30")
+        );
+        assert_eq!(negative_cache_control(StatusCode::UNAUTHORIZED), Some("no-store"));
+        assert_eq!(negative_cache_control(StatusCode::FORBIDDEN), Some("no-store"));
+        assert_eq!(
+            negative_cache_control(StatusCode::BAD_REQUEST),
+            Some("public, max-age=30")
+        );
+        assert_eq!(
+            negative_cache_control(StatusCode::INTERNAL_SERVER_ERROR),
+            Some("public, max-age=15")
+        );
+        assert_eq!(negative_cache_control(StatusCode::OK), None);
+        assert_eq!(negative_cache_control(StatusCode::FOUND), None);
     }
 }
