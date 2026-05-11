@@ -22,7 +22,7 @@ async-trait = "0.1"
 # Web framework
 axum = { version = "0.7", features = ["macros"] }
 tower = "0.4"
-tower-http = { version = "0.5", features = ["fs", "trace", "cors", "timeout", "limit"] }
+tower-http = { version = "0.5", features = ["fs", "trace", "cors", "timeout", "limit", "compression-gzip", "compression-br"] }
 
 # Database
 sea-orm = { version = "1", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"] }
