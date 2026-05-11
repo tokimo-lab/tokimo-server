@@ -37,7 +37,7 @@ pub mod zenquotes;
 use axum::{http::StatusCode, middleware, routing::get, Router};
 
 use crate::{
-    middleware::{admin_auth, record_metrics, service_auth},
+    middleware::{admin_auth, cache_headers, record_metrics, service_auth},
     AppState,
 };
 
@@ -84,6 +84,7 @@ pub fn api_routes(state: AppState) -> Router {
         .nest("/shooter", provider_routes(shooter::routes(), &state))
         .nest("/animetosho", provider_routes(animetosho::routes(), &state))
         .fallback(api_not_found)
+        .layer(middleware::from_fn(cache_headers))
         .layer(middleware::from_fn_with_state(state.clone(), record_metrics))
         .with_state(state)
 }
