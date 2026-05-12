@@ -1,40 +1,45 @@
 //! `GET /api/capabilities` — public AI-friendly capability discovery.
 //!
-//! The response is the static [`inventory`] joined with live 24h stats
-//! from [`MetricsStore`]. The handler caches the fully-serialized
-//! response in memory for `CACHE_TTL` seconds so polling clients don't
-//! re-compute percentiles per request.
+//! Two-tier response:
 //!
-//! The response itself emits no `Cache-Control` — the `cache_headers`
-//! middleware adds the standard `public, max-age=...` + `ETag` for us.
+//! * **No `Authorization` header**: static catalog only. We never touch
+//!   the metrics store, so this path is essentially free and we cache
+//!   the rendered JSON for 5 minutes.
+//! * **Valid `Bearer <service_key>`**: catalog + 24h stats per provider
+//!   plus global stats. Aggregation is cached for 30s (the spec) so a
+//!   polling client doesn't re-compute p50/p95 every request.
+//! * **Invalid key**: falls through to the public view, but with
+//!   `auth.warning` set so callers don't mistake it for a full answer.
 
 use std::sync::{LazyLock, OnceLock, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{
+    extract::State,
+    http::{HeaderMap, StatusCode},
+    response::IntoResponse,
+    Json,
+};
 use serde::Serialize;
 
 use crate::capabilities::inventory::{self, CategoryInfo, EndpointInfo};
 use crate::metrics::ProviderStats;
+use crate::middleware::validate_service_key;
 use crate::AppState;
 
-/// Server-process start time, used to compute uptime in seconds.
-/// `get_or_init`-ed by the first call; cost is negligible.
 static STARTED_AT: OnceLock<Instant> = OnceLock::new();
 
-/// 30s in-memory response cache (the spec requires this so each poll
-/// doesn't re-aggregate p50/p95 for every provider).
-const CACHE_TTL: Duration = Duration::from_secs(30);
+const AUTHED_CACHE_TTL: Duration = Duration::from_secs(30);
+const PUBLIC_CACHE_TTL: Duration = Duration::from_secs(300);
 
-/// Cache the last successful response body.
-static RESPONSE_CACHE: LazyLock<RwLock<Option<CachedResponse>>> = LazyLock::new(|| RwLock::new(None));
+static AUTHED_CACHE: LazyLock<RwLock<Option<CachedResponse>>> = LazyLock::new(|| RwLock::new(None));
+static PUBLIC_CACHE: LazyLock<RwLock<Option<CachedResponse>>> = LazyLock::new(|| RwLock::new(None));
 
 struct CachedResponse {
     expires_at: Instant,
     body: serde_json::Value,
 }
 
-/// The 24h aggregate stats block at the top of the response.
 #[derive(Debug, Clone, Serialize)]
 struct GlobalStats24h {
     total_calls: u64,
@@ -45,7 +50,6 @@ struct GlobalStats24h {
     p95_ms: u32,
 }
 
-/// Per-provider stats joined into each provider entry.
 #[derive(Debug, Clone, Serialize)]
 struct ProviderStats24h {
     calls: u64,
@@ -53,12 +57,11 @@ struct ProviderStats24h {
     p50_ms: u32,
     p95_ms: u32,
     hit_ratio: f64,
-    /// One of: "healthy" | "degraded" | "down" | "no-traffic".
     availability: &'static str,
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct ProviderEntry {
+struct ProviderEntryFull {
     id: &'static str,
     category: &'static str,
     summary: &'static str,
@@ -71,16 +74,42 @@ struct ProviderEntry {
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct AuthInfo {
+struct ProviderEntryPublic {
+    id: &'static str,
+    category: &'static str,
+    summary: &'static str,
+    upstream: &'static str,
+    ai_hint: &'static str,
+    endpoints: &'static [EndpointInfo],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    available_ids: Option<&'static [&'static str]>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AuthInfoPublic {
     r#type: &'static str,
     header_format: &'static str,
     public_endpoints: &'static [&'static str],
     admin_endpoints_prefix: &'static str,
     obtain_key: &'static str,
+    current_view: &'static str,
+    hint: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    warning: Option<&'static str>,
 }
 
 #[derive(Debug, Clone, Serialize)]
-struct CapabilitiesResponse {
+struct AuthInfoAuthed {
+    r#type: &'static str,
+    header_format: &'static str,
+    public_endpoints: &'static [&'static str],
+    admin_endpoints_prefix: &'static str,
+    obtain_key: &'static str,
+    current_view: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct CapabilitiesPublic {
     service: &'static str,
     version: &'static str,
     description: &'static str,
@@ -88,57 +117,122 @@ struct CapabilitiesResponse {
     generated_at: String,
     uptime_seconds: u64,
     stats_window: &'static str,
-    auth: AuthInfo,
+    auth: AuthInfoPublic,
+    categories: &'static [CategoryInfo],
+    providers: Vec<ProviderEntryPublic>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct CapabilitiesAuthed {
+    service: &'static str,
+    version: &'static str,
+    description: &'static str,
+    ai_integration_hint: &'static str,
+    generated_at: String,
+    uptime_seconds: u64,
+    stats_window: &'static str,
+    auth: AuthInfoAuthed,
     global_stats_24h: GlobalStats24h,
     categories: &'static [CategoryInfo],
-    providers: Vec<ProviderEntry>,
+    providers: Vec<ProviderEntryFull>,
 }
 
 const AI_INTEGRATION_HINT: &str = include_str!("ai_integration_hint.md");
 
-const AUTH: AuthInfo = AuthInfo {
-    r#type: "bearer",
-    header_format: "Authorization: Bearer <service_key>",
-    public_endpoints: &["/api/health", "/api/capabilities"],
-    admin_endpoints_prefix: "/api/admin",
-    obtain_key: "Contact administrator. Keys start with 'tks_'.",
-};
+const SERVICE: &str = "tokimo-server";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const DESCRIPTION: &str = "API proxy + CDN edge for tokimo desktop OS users in network-disadvantaged regions";
+const STATS_WINDOW: &str = "last 24h";
 
-/// Public handler. Returns the cached JSON if still fresh, otherwise
-/// rebuilds it from the latest metrics snapshot.
-pub async fn capabilities_handler(State(state): State<AppState>) -> impl IntoResponse {
-    // First-touch bootstrap: lock in the start instant so uptime works
-    // even if the handler is hit before any other code in the binary
-    // initialises it. `OnceLock` makes this a one-shot.
+const AUTH_TYPE: &str = "bearer";
+const AUTH_HEADER_FORMAT: &str = "Authorization: Bearer <service_key>";
+const AUTH_PUBLIC_ENDPOINTS: &[&str] = &["/api/health", "/api/capabilities"];
+const AUTH_ADMIN_PREFIX: &str = "/api/admin";
+const AUTH_OBTAIN: &str = "Contact administrator. Keys start with 'tks_'.";
+const AUTH_PUBLIC_HINT: &str = "Provide 'Authorization: Bearer <service_key>' to see per-provider usage stats.";
+const AUTH_INVALID_WARNING: &str = "Provided service key is invalid; showing public view.";
+
+enum AuthState {
+    Authorized,
+    InvalidKey,
+    NoKey,
+}
+
+async fn extract_auth_state(state: &AppState, headers: &HeaderMap) -> AuthState {
+    let Some(header_value) = headers.get("authorization").and_then(|h| h.to_str().ok()) else {
+        return AuthState::NoKey;
+    };
+    let Some(token) = header_value.strip_prefix("Bearer ") else {
+        return AuthState::InvalidKey;
+    };
+    if validate_service_key(state, token).await.is_some() {
+        AuthState::Authorized
+    } else {
+        AuthState::InvalidKey
+    }
+}
+
+pub async fn capabilities_handler(State(state): State<AppState>, headers: HeaderMap) -> impl IntoResponse {
     let started = *STARTED_AT.get_or_init(Instant::now);
+    let auth_state = extract_auth_state(&state, &headers).await;
 
-    if let Some(cached) = read_fresh_cache() {
+    match auth_state {
+        AuthState::Authorized => render_authed(&state, started),
+        AuthState::InvalidKey => render_public(started, true),
+        AuthState::NoKey => render_public(started, false),
+    }
+}
+
+fn render_authed(state: &AppState, started: Instant) -> axum::response::Response {
+    if let Some(cached) = read_fresh(&AUTHED_CACHE) {
         return (StatusCode::OK, Json(cached)).into_response();
     }
-
-    let body = build_response(&state, started);
+    let body = build_authed(state, started);
     let json_value = match serde_json::to_value(&body) {
         Ok(v) => v,
         Err(err) => {
-            tracing::error!("failed to serialize /api/capabilities: {err}");
+            tracing::error!("failed to serialize authed /api/capabilities: {err}");
             return (StatusCode::INTERNAL_SERVER_ERROR, "serialization error").into_response();
         }
     };
+    write_cache(&AUTHED_CACHE, &json_value, AUTHED_CACHE_TTL);
+    (StatusCode::OK, Json(json_value)).into_response()
+}
 
-    // Best-effort cache write. We don't fail the request if the lock is
-    // poisoned (extremely unlikely, but cheap to handle).
-    if let Ok(mut guard) = RESPONSE_CACHE.write() {
-        *guard = Some(CachedResponse {
-            expires_at: Instant::now() + CACHE_TTL,
-            body: json_value.clone(),
-        });
+fn render_public(started: Instant, invalid_key: bool) -> axum::response::Response {
+    // The cached body is identical for NoKey and InvalidKey except for the
+    // `auth.warning` field, so cache only the "no warning" variant and
+    // inject the warning into a clone when needed.
+    let mut json_value = if let Some(cached) = read_fresh(&PUBLIC_CACHE) {
+        cached
+    } else {
+        let body = build_public(started);
+        match serde_json::to_value(&body) {
+            Ok(v) => {
+                write_cache(&PUBLIC_CACHE, &v, PUBLIC_CACHE_TTL);
+                v
+            }
+            Err(err) => {
+                tracing::error!("failed to serialize public /api/capabilities: {err}");
+                return (StatusCode::INTERNAL_SERVER_ERROR, "serialization error").into_response();
+            }
+        }
+    };
+
+    if invalid_key {
+        if let Some(auth) = json_value.get_mut("auth").and_then(|v| v.as_object_mut()) {
+            auth.insert(
+                "warning".to_string(),
+                serde_json::Value::String(AUTH_INVALID_WARNING.to_string()),
+            );
+        }
     }
 
     (StatusCode::OK, Json(json_value)).into_response()
 }
 
-fn read_fresh_cache() -> Option<serde_json::Value> {
-    let guard = RESPONSE_CACHE.read().ok()?;
+fn read_fresh(cache: &RwLock<Option<CachedResponse>>) -> Option<serde_json::Value> {
+    let guard = cache.read().ok()?;
     let cached = guard.as_ref()?;
     if cached.expires_at > Instant::now() {
         Some(cached.body.clone())
@@ -147,15 +241,55 @@ fn read_fresh_cache() -> Option<serde_json::Value> {
     }
 }
 
-fn build_response(state: &AppState, started: Instant) -> CapabilitiesResponse {
-    // Reuse the same 24h aggregation that backs /api/admin/dashboard/by-provider
-    // so this endpoint and the admin dashboard never disagree about what
-    // "24h" means.
+fn write_cache(cache: &RwLock<Option<CachedResponse>>, value: &serde_json::Value, ttl: Duration) {
+    if let Ok(mut guard) = cache.write() {
+        *guard = Some(CachedResponse {
+            expires_at: Instant::now() + ttl,
+            body: value.clone(),
+        });
+    }
+}
+
+fn build_public(started: Instant) -> CapabilitiesPublic {
+    let providers = inventory::PROVIDERS
+        .iter()
+        .map(|info| ProviderEntryPublic {
+            id: info.id,
+            category: info.category,
+            summary: info.summary,
+            upstream: info.upstream,
+            ai_hint: info.ai_hint,
+            endpoints: info.endpoints,
+            available_ids: info.available_ids,
+        })
+        .collect::<Vec<_>>();
+
+    CapabilitiesPublic {
+        service: SERVICE,
+        version: VERSION,
+        description: DESCRIPTION,
+        ai_integration_hint: AI_INTEGRATION_HINT,
+        generated_at: now_iso8601(),
+        uptime_seconds: started.elapsed().as_secs(),
+        stats_window: STATS_WINDOW,
+        auth: AuthInfoPublic {
+            r#type: AUTH_TYPE,
+            header_format: AUTH_HEADER_FORMAT,
+            public_endpoints: AUTH_PUBLIC_ENDPOINTS,
+            admin_endpoints_prefix: AUTH_ADMIN_PREFIX,
+            obtain_key: AUTH_OBTAIN,
+            current_view: "public",
+            hint: AUTH_PUBLIC_HINT,
+            warning: None,
+        },
+        categories: inventory::CATEGORIES,
+        providers,
+    }
+}
+
+fn build_authed(state: &AppState, started: Instant) -> CapabilitiesAuthed {
     let per_provider: Vec<ProviderStats> = state.metrics.query_by_provider(24 * 60 * 60);
     let overview = state.metrics.overview_stats_24h();
-
-    // Global p50/p95 are derived from the timeseries (single 24h bucket)
-    // for the same reason — single source of truth.
     let buckets = state.metrics.query_timeseries(24 * 60 * 60, 24 * 60 * 60);
     let (p50_ms, p95_ms) = buckets.first().map(|b| (b.p50_ms, b.p95_ms)).unwrap_or((0, 0));
 
@@ -191,7 +325,7 @@ fn build_response(state: &AppState, started: Instant) -> CapabilitiesResponse {
                 },
             };
 
-            ProviderEntry {
+            ProviderEntryFull {
                 id: info.id,
                 category: info.category,
                 summary: info.summary,
@@ -204,26 +338,28 @@ fn build_response(state: &AppState, started: Instant) -> CapabilitiesResponse {
         })
         .collect::<Vec<_>>();
 
-    CapabilitiesResponse {
-        service: "tokimo-server",
-        version: env!("CARGO_PKG_VERSION"),
-        description: "API proxy + CDN edge for tokimo desktop OS users in network-disadvantaged regions",
+    CapabilitiesAuthed {
+        service: SERVICE,
+        version: VERSION,
+        description: DESCRIPTION,
         ai_integration_hint: AI_INTEGRATION_HINT,
         generated_at: now_iso8601(),
         uptime_seconds: started.elapsed().as_secs(),
-        stats_window: "last 24h",
-        auth: AUTH,
+        stats_window: STATS_WINDOW,
+        auth: AuthInfoAuthed {
+            r#type: AUTH_TYPE,
+            header_format: AUTH_HEADER_FORMAT,
+            public_endpoints: AUTH_PUBLIC_ENDPOINTS,
+            admin_endpoints_prefix: AUTH_ADMIN_PREFIX,
+            obtain_key: AUTH_OBTAIN,
+            current_view: "authorized",
+        },
         global_stats_24h: global_stats,
         categories: inventory::CATEGORIES,
         providers,
     }
 }
 
-/// availability classification rules from the spec:
-/// * error_rate > 0.5 AND calls >= 10 → "down"
-/// * error_rate > 0.2 AND calls >= 10 → "degraded"
-/// * calls > 0                        → "healthy"
-/// * calls == 0                       → "no-traffic"
 fn classify_availability(calls: u64, errors: u64) -> &'static str {
     if calls == 0 {
         return "no-traffic";
@@ -263,7 +399,7 @@ mod tests {
     #[test]
     fn availability_rules() {
         assert_eq!(classify_availability(0, 0), "no-traffic");
-        assert_eq!(classify_availability(5, 4), "healthy"); // calls<10 short-circuits
+        assert_eq!(classify_availability(5, 4), "healthy");
         assert_eq!(classify_availability(10, 6), "down");
         assert_eq!(classify_availability(10, 3), "degraded");
         assert_eq!(classify_availability(10, 1), "healthy");
@@ -274,5 +410,10 @@ mod tests {
     fn ai_hint_is_populated() {
         assert!(AI_INTEGRATION_HINT.len() > 200);
         assert!(AI_INTEGRATION_HINT.contains("tokimo-server"));
+    }
+
+    #[test]
+    fn ai_hint_mentions_two_tier() {
+        assert!(AI_INTEGRATION_HINT.contains("Two-tier"));
     }
 }

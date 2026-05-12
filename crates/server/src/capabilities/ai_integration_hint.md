@@ -25,3 +25,11 @@ curl -H "Authorization: Bearer <service_key>" \
 ## Provider category overview
 
 See `categories` for groupings. Use the same category to find a fallback when one provider degrades.
+
+## Two-tier response
+
+This endpoint is intentionally public-friendly:
+
+- **Without an `Authorization` header**: you get the static catalog (providers, endpoints, AI hints) so you can decide whether tokimo-server fits your need.
+- **With a valid service key**: you additionally get live 24h usage stats per provider (calls / p50 / p95 / hit ratio / availability) plus a global summary. Use these to dynamically pick healthy providers.
+- **With an invalid key**: you fall through to the public view, with `auth.warning` set so you know stats are missing.
