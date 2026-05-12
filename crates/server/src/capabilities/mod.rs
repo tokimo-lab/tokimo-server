@@ -15,4 +15,7 @@
 //! and added to `record_metrics::SKIP_PREFIXES` so polling never pollutes
 //! provider call stats.
 
+pub mod handler;
 pub mod inventory;
+
+pub use handler::capabilities_handler;

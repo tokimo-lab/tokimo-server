@@ -15,7 +15,7 @@ use crate::{
 /// These are server-internal endpoints (admin dashboard, health probes,
 /// reserved internal APIs). Including them would pollute provider stats
 /// with the admin dashboard's own polling traffic.
-const SKIP_PREFIXES: &[&str] = &["/api/admin/", "/api/health", "/api/_internal/"];
+const SKIP_PREFIXES: &[&str] = &["/api/admin/", "/api/health", "/api/_internal/", "/api/capabilities"];
 
 pub async fn record_metrics(State(state): State<AppState>, req: Request, next: Next) -> Response {
     let path = req

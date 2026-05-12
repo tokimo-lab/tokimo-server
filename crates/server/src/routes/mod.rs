@@ -38,6 +38,7 @@ use axum::{http::StatusCode, middleware, routing::get, Router};
 use tower_http::compression::CompressionLayer;
 
 use crate::{
+    capabilities::capabilities_handler,
     middleware::{admin_auth, cache_headers, record_metrics, service_auth},
     AppState,
 };
@@ -45,6 +46,7 @@ use crate::{
 pub fn api_routes(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
+        .route("/capabilities", get(capabilities_handler))
         .nest("/admin", admin::public_routes())
         .nest(
             "/admin",

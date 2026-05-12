@@ -1,3 +1,4 @@
+pub mod capabilities;
 pub mod config;
 pub mod db;
 pub mod error;
