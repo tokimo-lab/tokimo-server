@@ -98,6 +98,15 @@ async fn main() -> anyhow::Result<()> {
     // Spawn sports prewarm task
     tokio::spawn(routes::sports::prewarm_task(state.clone()));
 
+    // Spawn hot-search prewarm task (CDN-4): refresh all 19 sources every
+    // SERVER_PREWARM_INTERVAL_SECS so user requests never cold-start.
+    if config.prewarm_enabled {
+        tracing::info!("Hot prewarm enabled (interval={}s)", config.prewarm_interval_secs);
+        tokio::spawn(routes::hot::prewarm_task(state.clone()));
+    } else {
+        tracing::info!("Hot prewarm disabled (SERVER_PREWARM_ENABLED=false)");
+    }
+
     let cors = if config.cors_allowed_origins.is_empty() {
         CorsLayer::permissive()
     } else {

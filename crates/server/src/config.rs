@@ -30,6 +30,8 @@ pub struct AppConfig {
     pub storage_backend: String,
     pub storage_local_root: String,
     pub database_url: String,
+    pub prewarm_enabled: bool,
+    pub prewarm_interval_secs: u64,
 }
 
 impl AppConfig {
@@ -69,6 +71,15 @@ impl AppConfig {
             storage_backend: std::env::var("STORAGE_BACKEND").unwrap_or_else(|_| "local".into()),
             storage_local_root: std::env::var("STORAGE_LOCAL_ROOT").unwrap_or_else(|_| "./storage".into()),
             database_url: std::env::var("DATABASE_URL").context("DATABASE_URL not set")?,
+            prewarm_enabled: std::env::var("SERVER_PREWARM_ENABLED")
+                .ok()
+                .map(|v| !matches!(v.to_ascii_lowercase().as_str(), "0" | "false" | "no" | "off"))
+                .unwrap_or(true),
+            prewarm_interval_secs: std::env::var("SERVER_PREWARM_INTERVAL_SECS")
+                .ok()
+                .and_then(|v| v.parse::<u64>().ok())
+                .filter(|n| *n > 0)
+                .unwrap_or(300),
         })
     }
 }
