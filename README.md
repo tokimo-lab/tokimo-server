@@ -240,6 +240,14 @@ Selected via `STORAGE_BACKEND`. DB always stores object **keys**; the URL is ass
 
 `PRESIGN_TTL_SECONDS=0` ⇒ bucket is treated as public; `url_for` returns `{public_base}/{key}`. `>0` ⇒ bucket is private; `url_for` returns a presigned GET URL valid for that many seconds.
 
+## Operations
+
+### JSONB TOAST compression
+
+JSONB cache/profile columns use PostgreSQL 14+ `lz4` TOAST compression. Existing rows remain in their previous compression format until they are rewritten. To force recompression for the full benefit on large tables, run `VACUUM FULL <table>` only during a maintenance window.
+
+For new tables or operators, prefer setting `default_toast_compression = lz4` in `postgresql.conf` or via `ALTER SYSTEM`.
+
 ## GitHub Secrets
 
 For CI workflows:

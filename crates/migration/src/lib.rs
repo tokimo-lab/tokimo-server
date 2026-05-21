@@ -39,6 +39,7 @@ mod m20250101_000065_create_gestdown_cache;
 mod m20250101_000066_create_shooter_cache;
 mod m20250101_000067_create_animetosho_cache;
 mod m20250101_000068_create_itunes_cache;
+mod m20250101_000069_jsonb_lz4_compression;
 
 pub struct Migrator;
 
@@ -85,6 +86,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250101_000066_create_shooter_cache::Migration),
             Box::new(m20250101_000067_create_animetosho_cache::Migration),
             Box::new(m20250101_000068_create_itunes_cache::Migration),
+            Box::new(m20250101_000069_jsonb_lz4_compression::Migration),
         ]
     }
 }
