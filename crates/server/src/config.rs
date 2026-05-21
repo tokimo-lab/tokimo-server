@@ -32,6 +32,8 @@ pub struct AppConfig {
     pub database_url: String,
     pub prewarm_enabled: bool,
     pub prewarm_interval_secs: u64,
+    pub cache_cleanup_enabled: bool,
+    pub cache_cleanup_interval_hours: u64,
 }
 
 impl AppConfig {
@@ -80,6 +82,15 @@ impl AppConfig {
                 .and_then(|v| v.parse::<u64>().ok())
                 .filter(|n| *n > 0)
                 .unwrap_or(300),
+            cache_cleanup_enabled: std::env::var("SERVER_CACHE_CLEANUP_ENABLED")
+                .ok()
+                .map(|v| !matches!(v.to_ascii_lowercase().as_str(), "0" | "false" | "no" | "off"))
+                .unwrap_or(true),
+            cache_cleanup_interval_hours: std::env::var("SERVER_CACHE_CLEANUP_INTERVAL_HOURS")
+                .ok()
+                .and_then(|v| v.parse::<u64>().ok())
+                .filter(|n| *n > 0)
+                .unwrap_or(24),
         })
     }
 }

@@ -107,6 +107,16 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("Hot prewarm disabled (SERVER_PREWARM_ENABLED=false)");
     }
 
+    if config.cache_cleanup_enabled {
+        tracing::info!(
+            interval_hours = config.cache_cleanup_interval_hours,
+            "spawning cache_cleanup task"
+        );
+        tokimo_server::jobs::cache_cleanup::spawn(db.clone(), config.cache_cleanup_interval_hours);
+    } else {
+        tracing::info!("cache_cleanup disabled (SERVER_CACHE_CLEANUP_ENABLED=false)");
+    }
+
     let cors = if config.cors_allowed_origins.is_empty() {
         CorsLayer::permissive()
     } else {
