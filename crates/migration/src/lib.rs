@@ -41,6 +41,7 @@ mod m20250101_000067_create_animetosho_cache;
 mod m20250101_000068_create_itunes_cache;
 mod m20250101_000069_jsonb_lz4_compression;
 mod m20250101_000070_index_cleanup;
+mod m20250101_000071_add_fetched_at_indexes;
 
 pub struct Migrator;
 
@@ -89,6 +90,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20250101_000068_create_itunes_cache::Migration),
             Box::new(m20250101_000069_jsonb_lz4_compression::Migration),
             Box::new(m20250101_000070_index_cleanup::Migration),
+            Box::new(m20250101_000071_add_fetched_at_indexes::Migration),
         ]
     }
 }
