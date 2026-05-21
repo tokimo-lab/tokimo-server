@@ -26,7 +26,7 @@ An adapter, cache, and CDN-fronting service for third-party APIs (TMDB, Baidu Ho
 graph TB
     Client[Client]
     Admin[Admin UI]
-    
+
     subgraph Server["tokimo-server (Axum)"]
         Auth[Auth Middleware]
         Routes[Route Handlers]
@@ -35,7 +35,7 @@ graph TB
         Cache[Cache Layer]
         Storage[Storage Layer]
     end
-    
+
     subgraph Providers["Providers (31 adapters)"]
         Video[Video: TMDB · OMDb · TheTVDB · Bangumi · Fanart · Douban · JavBus · JavDB · ThePornDB · StashDB]
         Music[Music: Spotify · MusicBrainz · Deezer · LRCLIB]
@@ -43,10 +43,10 @@ graph TB
         Subs[Subtitles: Assrt · OpenSubtitles · RegieLive · Gestdown]
         Misc[Misc: Wikipedia · Qidian · GitHub Releases · Baidu Hot/Sports · Hitokoto · ZenQuotes · Bing Wallpaper · Currency]
     end
-    
+
     DB[(PostgreSQL)]
     FS[Local Storage]
-    
+
     Client -->|Bearer Token| Auth
     Admin -->|JWT| Auth
     Auth --> Routes
@@ -242,11 +242,112 @@ Selected via `STORAGE_BACKEND`. DB always stores object **keys**; the URL is ass
 
 ## Operations
 
-### JSONB TOAST compression
+### Database compression
 
-JSONB cache/profile columns use PostgreSQL 14+ `lz4` TOAST compression. Existing rows remain in their previous compression format until they are rewritten. To force recompression for the full benefit on large tables, run `VACUUM FULL <table>` only during a maintenance window.
+PostgreSQL JSONB columns (`hot_search_snapshots.data`, provider response payloads, etc.) use TOAST compression when values are large enough to spill out of line. Migration `m20250101_000069_jsonb_lz4_compression` (000069) switched all 44 JSONB columns from the PostgreSQL default `pglz` setting to `lz4` for **new writes**. Existing rows retain their original compression format until rewritten.
 
-For new tables or operators, prefer setting `default_toast_compression = lz4` in `postgresql.conf` or via `ALTER SYSTEM`.
+To recompress an existing table:
+
+```sql
+VACUUM FULL table_name;  -- ⚠️ Takes ACCESS EXCLUSIVE lock; schedule during maintenance window
+```
+
+**Operator decision required**: VACUUM FULL rebuilds the entire table and blocks all access. For large tables (GB+), consider off-peak execution or accept gradual migration via natural UPDATE/DELETE churn.
+
+### Index hygiene
+
+Run [`docs/db-audit.sql`](./docs/db-audit.sql) periodically (or integrate into monitoring) to detect:
+
+1. **Unused indexes** — never hit in production, safe to drop
+2. **Sequential scan hotspots** — missing index candidates
+3. **Table sizes** — disk usage per table/index
+4. **TOAST compression verification** — confirms lz4 vs pglz usage
+5. **Duplicate indexes** — redundant definitions
+
+Migration `m20250101_000070_index_cleanup` (000070) removed two single-column indexes on `hot_search_snapshots(source)` and `(fetched_at)`, replacing them with a composite `(source, fetched_at DESC)` index that covers both dimensions.
+
+### Cache cleanup
+
+Background task sweeps expired rows every 24 hours (configurable via `SERVER_CACHE_CLEANUP_INTERVAL_HOURS`, first run 5 min after boot). Implemented in `crates/server/src/jobs/cache_cleanup.rs`.
+
+| Retention Tier | TTL | Tables |
+|----------------|-----|--------|
+| **Volatile** | 1 day | `hot_search_snapshots`, `hot_search_items`, `currency_rates`, `openmeteo_forecasts`, `zenquotes_cache`, `hitokoto_cache`, `bing_wallpaper_cache` |
+| **Short** | 7 days | `github_releases`, `gestdown_cache`, `regielive_cache`, `shooter_cache`, `animetosho_cache`, `assrt_searches`, `assrt_sub_details`, `opensubtitles_cache`, `lrclib_lyrics` |
+| **Medium** | 30 days | `sport_matches`, `holiday_years`, `geocoding_results`, `nominatim_geocode` |
+| **Permanent** | ♾️ never deleted | `tmdb_*`, `omdb_titles`, `thetvdb_*`, `bangumi_subjects`, `fanart_assets`, `douban_subjects`, `spotify_*`, `deezer_*`, `musicbrainz_*`, `qidian_books`, `wikipedia_summaries`, `itunes_cache` |
+
+Additionally cleans:
+
+```sql
+DELETE FROM cache_entries WHERE expires_at < now();
+```
+
+**Control:**
+- `SERVER_CACHE_CLEANUP_ENABLED` (default `true`) — set to `false` to disable
+- `SERVER_CACHE_CLEANUP_INTERVAL_HOURS` (default `24`) — sweep interval
+
+### Admin Operations Tab
+
+Planned: `/admin` → "CDN 运维" tab will expose:
+
+- Compression overview (per-table lz4 vs pglz ratio)
+- Table sizes & row counts
+- Per-table oldest `fetched_at` timestamp
+- Manual cleanup trigger
+- Last-run stats (rows deleted, duration)
+
+See [`docs/cdn-roadmap.md`](./docs/cdn-roadmap.md) for implementation status.
+
+### Manual operations cheat sheet
+
+```bash
+# Check configured TOAST compression for JSONB columns
+
+docker exec tokimo-postgres psql -U postgres -d tokimo_db -c "
+SELECT attrelid::regclass AS table_name,
+       attname AS column_name,
+       CASE attcompression
+         WHEN 'l' THEN 'lz4'
+         WHEN 'p' THEN 'pglz'
+         ELSE 'default'
+       END AS compression
+FROM pg_attribute
+WHERE attnum > 0
+  AND NOT attisdropped
+  AND atttypid = 'jsonb'::regtype
+ORDER BY 1, 2;"
+
+# View per-table row counts & oldest entry
+docker exec tokimo-postgres psql -U postgres -d tokimo_db -c "
+SELECT 'hot_search_snapshots' AS table,
+       count(*) AS rows,
+       min(fetched_at) AS oldest
+FROM hot_search_snapshots
+UNION ALL
+SELECT 'tmdb_profiles', count(*), min(updated_at) FROM tmdb_profiles
+UNION ALL
+SELECT 'currency_rates', count(*), min(fetched_at) FROM currency_rates;"
+
+# Manually trigger cleanup (SQL fallback until Admin UI lands)
+docker exec tokimo-postgres psql -U postgres -d tokimo_db -c "
+DELETE FROM hot_search_snapshots WHERE fetched_at < now() - interval '1 day';
+DELETE FROM hot_search_items WHERE fetched_at < now() - interval '1 day';
+DELETE FROM github_releases WHERE fetched_at < now() - interval '7 days';
+DELETE FROM cache_entries WHERE expires_at < now();"
+
+# VACUUM recommendations
+docker exec tokimo-postgres psql -U postgres -d tokimo_db -c "
+SELECT schemaname, tablename,
+       last_vacuum, last_autovacuum,
+       n_dead_tup, n_live_tup,
+       CASE WHEN n_live_tup > 0
+            THEN round(100.0 * n_dead_tup / n_live_tup, 2)
+            ELSE 0 END AS dead_ratio
+FROM pg_stat_user_tables
+WHERE n_dead_tup > 1000 OR (n_live_tup > 0 AND n_dead_tup::float / n_live_tup > 0.2)
+ORDER BY n_dead_tup DESC;"
+```
 
 ## GitHub Secrets
 
