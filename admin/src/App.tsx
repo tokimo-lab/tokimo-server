@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import Layout from "./components/Layout";
 import CacheInspectorPage from "./pages/CacheInspectorPage";
+import CdnOperationsPage from "./pages/CdnOperationsPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import ProviderConfigsPage from "./pages/ProviderConfigsPage";
@@ -25,6 +26,7 @@ function App() {
           <Route path="keys" element={<ServiceKeysPage />} />
           <Route path="providers" element={<ProviderConfigsPage />} />
           <Route path="cache" element={<CacheInspectorPage />} />
+          <Route path="cdn" element={<CdnOperationsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>

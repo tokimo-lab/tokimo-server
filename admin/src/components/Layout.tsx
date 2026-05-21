@@ -1,5 +1,6 @@
 import {
   ApiOutlined,
+  CloudServerOutlined,
   DashboardOutlined,
   DatabaseOutlined,
   KeyOutlined,
@@ -44,6 +45,7 @@ const routes = [
   { key: "keys", path: "/keys", icon: <KeyOutlined /> },
   { key: "providers", path: "/providers", icon: <ApiOutlined /> },
   { key: "cache", path: "/cache", icon: <DatabaseOutlined /> },
+  { key: "cdn", path: "/cdn", icon: <CloudServerOutlined /> },
   { key: "settings", path: "/settings", icon: <SettingOutlined /> },
 ] as const;
 
