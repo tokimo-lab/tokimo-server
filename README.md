@@ -1,5 +1,7 @@
 # tokimo-server
 
+> 中文版: [README.zh-CN.md](README.zh-CN.md)
+
 An adapter, cache, and CDN-fronting service for third-party APIs (TMDB, Baidu Hot Search, Baidu Sports, and more). Provides normalized data persistence, single-flight request deduplication, rate limiting, and asset storage.
 
 ## Features
