@@ -6,7 +6,9 @@ use axum::{
 };
 use jsonwebtoken::{encode, EncodingKey, Header};
 use rand::Rng;
-use sea_orm::{entity::*, DbBackend, FromQueryResult, PaginatorTrait, QueryOrder, QuerySelect, Statement};
+use sea_orm::{
+    entity::*, ConnectionTrait, DbBackend, FromQueryResult, PaginatorTrait, QueryOrder, QuerySelect, Statement,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -43,6 +45,10 @@ pub fn protected_routes() -> Router<AppState> {
         .route("/cache/:table", get(cache_list))
         .route("/cache/:table/:id", delete(cache_delete))
         .route("/cache/:table/:id/refresh", post(cache_refresh))
+        .route("/cdn/overview", get(cdn_overview))
+        .route("/cdn/tables", get(cdn_tables))
+        .route("/cdn/cleanup/run", post(cdn_cleanup_run))
+        .route("/cdn/cleanup/last", get(cdn_cleanup_last))
 }
 
 #[derive(Deserialize)]
@@ -1245,4 +1251,261 @@ fn parse_pk_values(table: &CacheTableInfo, id: &str) -> AppResult<Vec<String>> {
         )));
     }
     Ok(values)
+}
+
+#[derive(Serialize)]
+struct CdnCompressionDetail {
+    table: String,
+    column: String,
+    compression: String,
+}
+
+#[derive(Serialize)]
+struct CdnCompressionInfo {
+    total_jsonb_columns: usize,
+    lz4: usize,
+    pglz: usize,
+    details: Vec<CdnCompressionDetail>,
+}
+
+#[derive(Serialize)]
+struct CdnIndexesInfo {
+    fetched_at_indexes: usize,
+    missing_on_tables: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct CdnOverviewResponse {
+    compression: CdnCompressionInfo,
+    indexes: CdnIndexesInfo,
+}
+
+async fn cdn_overview(State(state): State<AppState>) -> AppResult<Json<CdnOverviewResponse>> {
+    let compression_sql = r#"
+        SELECT
+            c.relname AS table_name,
+            a.attname AS column_name,
+            CASE a.attcompression
+                WHEN 'l' THEN 'l'
+                WHEN 'p' THEN 'p'
+                ELSE ''
+            END AS compression
+        FROM pg_attribute a
+        JOIN pg_class c ON a.attrelid = c.oid
+        JOIN pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public'
+          AND a.atttypid = 'jsonb'::regtype
+          AND a.attnum > 0
+          AND NOT a.attisdropped
+        ORDER BY c.relname, a.attname
+    "#;
+
+    let compression_stmt = Statement::from_string(DbBackend::Postgres, compression_sql.to_string());
+    let compression_results = state
+        .db
+        .query_all(compression_stmt)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    let mut lz4_count = 0;
+    let mut pglz_count = 0;
+    let mut details = Vec::new();
+    for row in &compression_results {
+        let table_name: String = row
+            .try_get("", "table_name")
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        let column_name: String = row
+            .try_get("", "column_name")
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        let compression: String = row
+            .try_get("", "compression")
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        if compression == "l" {
+            lz4_count += 1;
+        } else if compression == "p" {
+            pglz_count += 1;
+        }
+        details.push(CdnCompressionDetail {
+            table: table_name,
+            column: column_name,
+            compression,
+        });
+    }
+
+    let indexes_sql = r#"
+        SELECT
+            indexname,
+            indexdef
+        FROM pg_indexes
+        WHERE schemaname = 'public'
+          AND (indexname LIKE 'idx_%_fetched_at' OR indexdef ILIKE '%(fetched_at)%')
+    "#;
+
+    let indexes_stmt = Statement::from_string(DbBackend::Postgres, indexes_sql.to_string());
+    let index_results = state
+        .db
+        .query_all(indexes_stmt)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    let mut indexed_tables = std::collections::HashSet::new();
+    for row in &index_results {
+        let indexname: String = row
+            .try_get("", "indexname")
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        let indexdef: String = row
+            .try_get("", "indexdef")
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+
+        if !indexdef.to_lowercase().contains("fetched_at") {
+            continue;
+        }
+        if let Some(table) = indexname
+            .strip_prefix("idx_")
+            .and_then(|s| s.strip_suffix("_fetched_at"))
+        {
+            indexed_tables.insert(table.to_string());
+            continue;
+        }
+        let indexdef_lower = indexdef.to_lowercase();
+        if let Some(start) = indexdef_lower.find("on public.") {
+            let after_on = &indexdef[start + 10..];
+            if let Some(space_pos) = after_on.find(|c: char| c.is_whitespace() || c == '(') {
+                indexed_tables.insert(after_on[..space_pos].to_string());
+                continue;
+            }
+        } else if let Some(start) = indexdef_lower.find("on ") {
+            let after_on = &indexdef[start + 3..];
+            if let Some(space_pos) = after_on.find(|c: char| c.is_whitespace() || c == '(') {
+                let table = after_on[..space_pos].trim_start_matches("public.").to_string();
+                indexed_tables.insert(table);
+                continue;
+            }
+        }
+    }
+
+    let expected_tables: std::collections::HashSet<String> = crate::jobs::retention::CACHE_TABLES
+        .iter()
+        .map(|entry| entry.table.to_string())
+        .collect();
+
+    let mut missing_on_tables: Vec<String> = expected_tables.difference(&indexed_tables).cloned().collect();
+    missing_on_tables.sort();
+
+    Ok(Json(CdnOverviewResponse {
+        compression: CdnCompressionInfo {
+            total_jsonb_columns: details.len(),
+            lz4: lz4_count,
+            pglz: pglz_count,
+            details,
+        },
+        indexes: CdnIndexesInfo {
+            fetched_at_indexes: index_results.len(),
+            missing_on_tables,
+        },
+    }))
+}
+
+#[derive(Serialize)]
+struct CdnTableStatus {
+    table: String,
+    tier: String,
+    retention_secs: Option<i64>,
+    row_count: i64,
+    oldest_fetched_at: Option<String>,
+    newest_fetched_at: Option<String>,
+}
+
+async fn cdn_tables(State(state): State<AppState>) -> AppResult<Json<Vec<CdnTableStatus>>> {
+    #[derive(FromQueryResult)]
+    struct TableStats {
+        row_count: i64,
+        oldest_fetched_at: Option<String>,
+        newest_fetched_at: Option<String>,
+    }
+
+    let mut results = Vec::new();
+
+    for entry in crate::jobs::retention::CACHE_TABLES {
+        let sql = format!(
+            "SELECT count(*)::bigint AS row_count, min({})::text AS oldest_fetched_at, max({})::text AS newest_fetched_at FROM {}",
+            entry.timestamp_col, entry.timestamp_col, entry.table
+        );
+
+        let stats = TableStats::find_by_statement(Statement::from_string(DbBackend::Postgres, sql))
+            .one(&state.db)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?
+            .unwrap_or(TableStats {
+                row_count: 0,
+                oldest_fetched_at: None,
+                newest_fetched_at: None,
+            });
+
+        let tier_label = match entry.tier {
+            crate::jobs::retention::RetentionTier::Volatile => "volatile",
+            crate::jobs::retention::RetentionTier::Short => "short",
+            crate::jobs::retention::RetentionTier::Medium => "medium",
+            crate::jobs::retention::RetentionTier::Permanent => "permanent",
+        };
+
+        results.push(CdnTableStatus {
+            table: entry.table.to_string(),
+            tier: tier_label.to_string(),
+            retention_secs: entry.tier.duration_secs(),
+            row_count: stats.row_count,
+            oldest_fetched_at: stats.oldest_fetched_at,
+            newest_fetched_at: stats.newest_fetched_at,
+        });
+    }
+
+    let cache_entries_sql =
+        "SELECT count(*)::bigint AS row_count, min(expires_at)::text AS oldest_fetched_at, max(expires_at)::text AS newest_fetched_at FROM cache_entries";
+    let cache_entries_stats = TableStats::find_by_statement(Statement::from_string(
+        DbBackend::Postgres,
+        cache_entries_sql.to_string(),
+    ))
+    .one(&state.db)
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+    .unwrap_or(TableStats {
+        row_count: 0,
+        oldest_fetched_at: None,
+        newest_fetched_at: None,
+    });
+
+    results.push(CdnTableStatus {
+        table: "cache_entries".to_string(),
+        tier: "ttl".to_string(),
+        retention_secs: None,
+        row_count: cache_entries_stats.row_count,
+        oldest_fetched_at: cache_entries_stats.oldest_fetched_at,
+        newest_fetched_at: cache_entries_stats.newest_fetched_at,
+    });
+
+    Ok(Json(results))
+}
+
+async fn cdn_cleanup_run(
+    State(state): State<AppState>,
+) -> AppResult<Json<crate::jobs::cache_cleanup::CleanupRunStats>> {
+    let stats = crate::jobs::cache_cleanup::run_once(&state.db)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(Json(stats))
+}
+
+#[derive(Serialize)]
+struct CdnCleanupLastResponse {
+    last_run: Option<crate::jobs::cache_cleanup::CleanupRunStats>,
+}
+
+async fn cdn_cleanup_last(State(state): State<AppState>) -> AppResult<Json<CdnCleanupLastResponse>> {
+    let last_run = state
+        .last_cleanup_stats
+        .lock()
+        .map(|guard| guard.clone())
+        .unwrap_or(None);
+    Ok(Json(CdnCleanupLastResponse { last_run }))
 }
