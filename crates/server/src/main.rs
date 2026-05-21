@@ -67,6 +67,7 @@ async fn main() -> anyhow::Result<()> {
         config: config.clone(),
         metrics: Arc::new(MetricsStore::new()),
         provider_configs: Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
+        last_cleanup_stats: Arc::new(std::sync::Mutex::new(None)),
     };
 
     // Seed provider_configs with registry defaults; existing rows kept untouched.
@@ -112,7 +113,11 @@ async fn main() -> anyhow::Result<()> {
             interval_hours = config.cache_cleanup_interval_hours,
             "spawning cache_cleanup task"
         );
-        tokimo_server::jobs::cache_cleanup::spawn(db.clone(), config.cache_cleanup_interval_hours);
+        tokimo_server::jobs::cache_cleanup::spawn(
+            db.clone(),
+            config.cache_cleanup_interval_hours,
+            state.last_cleanup_stats.clone(),
+        );
     } else {
         tracing::info!("cache_cleanup disabled (SERVER_CACHE_CLEANUP_ENABLED=false)");
     }

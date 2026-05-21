@@ -14,7 +14,7 @@ pub use error::{AppError, AppResult};
 
 use crate::infra::PgSingleFlight;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokimo_core::{Cache, RateLimiter, Storage};
 use tokio::sync::RwLock;
 
@@ -35,6 +35,7 @@ pub struct AppState {
     pub config: Arc<AppConfig>,
     pub metrics: Arc<crate::metrics::MetricsStore>,
     pub provider_configs: Arc<RwLock<HashMap<String, ProviderRuntimeConfig>>>,
+    pub last_cleanup_stats: Arc<Mutex<Option<crate::jobs::cache_cleanup::CleanupRunStats>>>,
 }
 
 impl AppState {

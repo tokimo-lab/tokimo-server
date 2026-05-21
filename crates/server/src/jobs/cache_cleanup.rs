@@ -1,5 +1,6 @@
 //! Background task that periodically deletes expired rows from cache tables.
 
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use sea_orm::{ConnectionTrait, DatabaseBackend, DatabaseConnection, Statement};
@@ -10,7 +11,7 @@ use super::retention::{CacheTableRetention, CACHE_TABLES};
 
 const INITIAL_DELAY: Duration = Duration::from_secs(5 * 60);
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 pub struct CleanupRunStats {
     pub started_at: Option<chrono::DateTime<chrono::Utc>>,
     pub finished_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -19,7 +20,7 @@ pub struct CleanupRunStats {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct TableCleanupResult {
     pub table: &'static str,
     pub tier: &'static str,
@@ -28,7 +29,7 @@ pub struct TableCleanupResult {
     pub error: Option<String>,
 }
 
-pub fn spawn(db: DatabaseConnection, interval_hours: u64) {
+pub fn spawn(db: DatabaseConnection, interval_hours: u64, last_stats: Arc<Mutex<Option<CleanupRunStats>>>) {
     let interval = Duration::from_secs(interval_hours.max(1) * 3600);
 
     tokio::spawn(async move {
@@ -42,9 +43,22 @@ pub fn spawn(db: DatabaseConnection, interval_hours: u64) {
                         tables = stats.per_table.len(),
                         "cache_cleanup tick finished"
                     );
+                    if let Ok(mut guard) = last_stats.lock() {
+                        *guard = Some(stats);
+                    }
                 }
                 Err(e) => {
                     error!(error = %e, "cache_cleanup tick failed");
+                    let error_stats = CleanupRunStats {
+                        started_at: Some(chrono::Utc::now()),
+                        finished_at: Some(chrono::Utc::now()),
+                        total_rows_deleted: 0,
+                        per_table: vec![],
+                        error: Some(e.to_string()),
+                    };
+                    if let Ok(mut guard) = last_stats.lock() {
+                        *guard = Some(error_stats);
+                    }
                 }
             }
 
